@@ -58,10 +58,11 @@ fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .map(|(f, args)| Expr::Func(f, args));
         let atom = num
             .or(expr.delimited_by(just('('), just(')')))
-            .or(call)
-            .or(cellref)
-            .or(cellrange)
+            .or(num)
             .or(str_)
+            .or(cellrange)
+            .or(cellref)
+            .or(call)
             .padded();
         atom
     });
@@ -103,7 +104,7 @@ mod tests {
     #[test]
     fn simple_cellrange() {
         parse("A1:Z99");
-        parse("A23:B42");
+        parse("AA23:BB42");
     }
 
     #[test]
