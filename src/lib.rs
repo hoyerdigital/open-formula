@@ -10,6 +10,7 @@ enum Expr {
     Sub(Box<Self>, Box<Self>),
     Mul(Box<Self>, Box<Self>),
     Div(Box<Self>, Box<Self>),
+    Cond(char, Box<Self>, Box<Self>),
     Func(String, Vec<Self>),
     CellRef(String, usize),
     CellRange((String, usize), (String, usize)),
@@ -50,7 +51,8 @@ fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
         let call = ident
             .then(
                 expr.clone()
-                    .separated_by(just(';'))
+                    // TODO: make function argument configurable (, vs ;)
+                    .separated_by(just(','))
                     .allow_trailing()
                     .collect::<Vec<_>>()
                     .delimited_by(just('('), just(')')),
@@ -94,7 +96,17 @@ fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             )
             .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-        sum
+        let comp = just('=').or(just('>')).or(just('<'));
+        let cond = sum
+            .clone()
+            .then(
+                comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
+                    .then(sum)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+
+        cond
     });
 
     expr.then_ignore(end())
@@ -148,19 +160,19 @@ mod tests {
     #[test]
     fn simple_func() {
         assert_eq!(
-            parse("SUM(3;4)"),
+            parse("SUM(3,4)"),
             Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
         );
         assert_eq!(
-            parse("SUM(3.0;4.0)"),
+            parse("SUM(3.0,4.0)"),
             Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
         );
         assert_eq!(
-            parse("SUM(3.0 ;     4.0)"),
+            parse("SUM(3.0 ,     4.0)"),
             Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
         );
         assert_eq!(
-            parse("(SUM(\"3\";\"4\"))"),
+            parse("(SUM(\"3\",\"4\"))"),
             Expr::Func(
                 "SUM".into(),
                 vec![Expr::String("3".into()), Expr::String("4".into())]
@@ -170,6 +182,7 @@ mod tests {
 
     #[test]
     fn simple_ops() {
+        // TODO: add asserts
         parse("3+4");
         parse("3.0 + 4.0");
         parse("3*  4");
@@ -177,5 +190,11 @@ mod tests {
         parse("5.0-2");
         parse("1.0/1.0");
         parse("-1.0 / -1.0");
+    }
+
+    #[test]
+    fn complex() {
+        // TODO: add asserts
+        parse("SUM(--(FREQUENCY(IF(C5:C11=G5,MATCH(B5:B11,B5:B11,0)),ROW(B5:B11)-ROW(B5)+1)>0))");
     }
 }
