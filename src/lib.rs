@@ -5,6 +5,7 @@ use enum_as_inner::EnumAsInner;
 enum Expr {
     Num(f64),
     String(String),
+    Neg(Box<Self>),
     Add(Box<Self>, Box<Self>),
     Sub(Box<Self>, Box<Self>),
     Mul(Box<Self>, Box<Self>),
@@ -63,8 +64,39 @@ fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .or(cellref)
             .or(call)
             .padded();
-        atom
+
+        let op = |c| just(c).padded();
+
+        let unary = op('-')
+            .repeated()
+            .then(atom.clone())
+            .foldr(|_op, rhs| Expr::Neg(Box::new(rhs)));
+
+        let product = unary
+            .clone()
+            .then(
+                op('*')
+                    .to(Expr::Mul as fn(_, _) -> _)
+                    .or(op('/').to(Expr::Div as fn(_, _) -> _))
+                    .then(unary)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+
+        let sum = product
+            .clone()
+            .then(
+                op('+')
+                    .to(Expr::Add as fn(_, _) -> _)
+                    .or(op('-').to(Expr::Sub as fn(_, _) -> _))
+                    .then(product)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+
+        sum
     });
+
     expr.then_ignore(end())
 }
 
@@ -137,12 +169,13 @@ mod tests {
     }
 
     #[test]
-    fn ops() {
+    fn simple_ops() {
         parse("3+4");
         parse("3.0 + 4.0");
-        parse("3*4");
+        parse("3*  4");
         parse("3*4/5-2");
         parse("5.0-2");
         parse("1.0/1.0");
+        parse("-1.0 / -1.0");
     }
 }
