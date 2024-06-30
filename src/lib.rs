@@ -1,7 +1,7 @@
 use chumsky::{error::Cheap, prelude::*};
 use enum_as_inner::EnumAsInner;
 
-#[derive(Debug, Clone, EnumAsInner)]
+#[derive(Debug, Clone, EnumAsInner, PartialEq)]
 enum Expr {
     Num(f64),
     String(String),
@@ -10,8 +10,8 @@ enum Expr {
     Mul(Box<Self>, Box<Self>),
     Div(Box<Self>, Box<Self>),
     Func(String, Vec<Self>),
-    CellRef(String, u64),
-    CellRange((String, u64), (String, u64)),
+    CellRef(String, usize),
+    CellRange((String, usize), (String, usize)),
 }
 
 fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
@@ -22,8 +22,7 @@ fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .collect::<String>();
         let cellref = uppercase
             .then(text::digits(10))
-            //.then_ignore(end())
-            .map(|(cell, num)| Expr::CellRef(cell, num.parse::<u64>().unwrap()));
+            .map(|(cell, num)| Expr::CellRef(cell, num.parse::<usize>().unwrap()));
         let cellrange = cellref
             .clone()
             .then_ignore(just(":"))
@@ -80,39 +79,61 @@ mod tests {
         res.unwrap()
     }
 
-    // FIXME: add asserts to check Expr values
-
     #[test]
     fn simple_num() {
-        parse("3");
-        parse("3.0");
-        parse("3.000000000000000001");
+        assert_eq!(parse("3"), Expr::Num(3.0));
+        assert_eq!(parse("3.0"), Expr::Num(3.0));
+        assert_eq!(
+            parse("3.000000000000000001"),
+            Expr::Num(3.000000000000000001)
+        );
     }
 
     #[test]
     fn simple_string() {
-        parse("\"3\"");
-        parse("\"ABCDEFG\"");
+        assert_eq!(parse("\"3\""), Expr::String("3".into()));
+        assert_eq!(parse("\"ABCDEFG\""), Expr::String("ABCDEFG".into()));
     }
 
     #[test]
     fn simple_cellref() {
-        parse("A1");
-        parse("XY23");
+        assert_eq!(parse("A1"), Expr::CellRef("A".into(), 1));
+        assert_eq!(parse("XY23"), Expr::CellRef("XY".into(), 23));
     }
 
     #[test]
     fn simple_cellrange() {
-        parse("A1:Z99");
-        parse("AA23:BB42");
+        assert_eq!(
+            parse("A1:Z99"),
+            Expr::CellRange(("A".into(), 1), ("Z".into(), 99))
+        );
+        assert_eq!(
+            parse("AA23:BB42"),
+            Expr::CellRange(("AA".into(), 23), ("BB".into(), 42))
+        );
     }
 
     #[test]
     fn simple_func() {
-        parse("SUM(3;4)");
-        parse("SUM(3.0;4.0)");
-        parse("SUM(3.0 ;     4.0)");
-        parse("(SUM(\"3\";\"4\"))");
+        assert_eq!(
+            parse("SUM(3;4)"),
+            Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
+        );
+        assert_eq!(
+            parse("SUM(3.0;4.0)"),
+            Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
+        );
+        assert_eq!(
+            parse("SUM(3.0 ;     4.0)"),
+            Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
+        );
+        assert_eq!(
+            parse("(SUM(\"3\";\"4\"))"),
+            Expr::Func(
+                "SUM".into(),
+                vec![Expr::String("3".into()), Expr::String("4".into())]
+            )
+        );
     }
 
     #[test]
