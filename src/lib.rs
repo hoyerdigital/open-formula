@@ -1,5 +1,15 @@
-use chumsky::{error::Cheap, prelude::*};
+use chumsky::{prelude::*, primitive::Container};
 use enum_as_inner::EnumAsInner;
+
+#[derive(Debug, Clone, PartialEq)]
+enum Comp {
+    Equal,
+    NotEqual,
+    Lower,
+    Greater,
+    LowerEqual,
+    GreaterEqual,
+}
 
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 enum Expr {
@@ -10,7 +20,8 @@ enum Expr {
     Sub(Box<Self>, Box<Self>),
     Mul(Box<Self>, Box<Self>),
     Div(Box<Self>, Box<Self>),
-    Cond(char, Box<Self>, Box<Self>),
+    Pow(Box<Self>, Box<Self>),
+    Cond(Comp, Box<Self>, Box<Self>),
     Func(String, Vec<Self>),
     CellRef(String, usize),
     CellRange((String, usize), (String, usize)),
@@ -74,13 +85,23 @@ fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .then(atom.clone())
             .foldr(|_op, rhs| Expr::Neg(Box::new(rhs)));
 
-        let product = unary
+        let pow = unary
+            .clone()
+            .then(
+                op('^')
+                    .to(Expr::Pow as fn(_, _) -> _)
+                    .then(unary)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+
+        let product = pow
             .clone()
             .then(
                 op('*')
                     .to(Expr::Mul as fn(_, _) -> _)
                     .or(op('/').to(Expr::Div as fn(_, _) -> _))
-                    .then(unary)
+                    .then(pow)
                     .repeated(),
             )
             .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
@@ -96,7 +117,14 @@ fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             )
             .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-        let comp = just('=').or(just('>')).or(just('<'));
+        let comp = choice::<_, Simple<char>>((
+            just("<>").to(Comp::NotEqual),
+            just(">=").to(Comp::GreaterEqual),
+            just("<=").to(Comp::LowerEqual),
+            just("=").to(Comp::Equal),
+            just(">").to(Comp::Greater),
+            just("<").to(Comp::Lower),
+        ));
         let cond = sum
             .clone()
             .then(
@@ -190,11 +218,33 @@ mod tests {
         parse("5.0-2");
         parse("1.0/1.0");
         parse("-1.0 / -1.0");
+        parse("2^0");
+    }
+
+    #[test]
+    fn complex_ops() {
+        // TODO: add asserts
+        parse("3+4/2");
+        parse("3*  4+10");
+        parse("2^2+5/2");
+        parse("2^3*3");
+    }
+
+    #[test]
+    fn simple_comp() {
+        // TODO: add asserts
+        parse("3=4");
+        parse("3>4");
+        parse("3<4");
+        parse("3<=4");
+        parse("3>=4");
+        parse("3<>4");
     }
 
     #[test]
     fn complex() {
         // TODO: add asserts
         parse("SUM(--(FREQUENCY(IF(C5:C11=G5,MATCH(B5:B11,B5:B11,0)),ROW(B5:B11)-ROW(B5)+1)>0))");
+        parse("SUM(--(MMULT(TRANSPOSE(ROW(A1:A99)^0),--(A1:A99=I4))>0))");
     }
 }
