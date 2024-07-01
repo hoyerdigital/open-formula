@@ -14,6 +14,7 @@ pub enum Comp {
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 pub enum Expr {
     Num(f64),
+    Bool(bool),
     String(String),
     Perc(Box<Self>),
     Neg(Box<Self>),
@@ -71,10 +72,16 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                     .delimited_by(just('('), just(')')),
             )
             .map(|(f, args)| Expr::Func(f, args));
+        let bool = choice::<_, Simple<char>>((
+            text::keyword("TRUE").to(Expr::Bool(true)),
+            text::keyword("FALSE").to(Expr::Bool(false)),
+        ))
+        .padded();
 
         let atom = num
             .or(expr.delimited_by(just('('), just(')')))
             .or(num)
+            .or(bool)
             .or(str_)
             .or(cellrange)
             .or(cellref)
@@ -181,6 +188,12 @@ mod tests {
     }
 
     #[test]
+    fn simple_bool() {
+        assert_eq!(parse("TRUE"), Expr::Bool(true));
+        assert_eq!(parse("FALSE"), Expr::Bool(false));
+    }
+
+    #[test]
     fn simple_string() {
         assert_eq!(parse("\"3\""), Expr::String("3".into()));
         assert_eq!(parse("\"ABCDEFG\""), Expr::String("ABCDEFG".into()));
@@ -240,6 +253,7 @@ mod tests {
         parse("2^0");
         parse("-3 * -1");
         parse("2*20%");
+        parse("\"A\"&TRUE");
     }
 
     #[test]
