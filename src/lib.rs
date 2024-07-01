@@ -232,6 +232,10 @@ mod tests {
             Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
         );
         assert_eq!(
+            parse("TRUES(\"FOOBAR\")"),
+            Expr::Func("TRUES".into(), vec![Expr::String("FOOBAR".into())])
+        );
+        assert_eq!(
             parse("(SUM(\"3\",\"4\"))"),
             Expr::Func(
                 "SUM".into(),
