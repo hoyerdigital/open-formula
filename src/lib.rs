@@ -15,6 +15,7 @@ pub enum Comp {
 pub enum Expr {
     Num(f64),
     String(String),
+    Perc(Box<Self>),
     Neg(Box<Self>),
     Add(Box<Self>, Box<Self>),
     Sub(Box<Self>, Box<Self>),
@@ -69,6 +70,7 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                     .delimited_by(just('('), just(')')),
             )
             .map(|(f, args)| Expr::Func(f, args));
+
         let atom = num
             .or(expr.delimited_by(just('('), just(')')))
             .or(num)
@@ -80,9 +82,14 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
 
         let op = |c| just(c).padded();
 
+        let unary_suffix = atom
+            .clone()
+            .then(op('%').repeated())
+            .foldl(|lhs, _op| Expr::Perc(Box::new(lhs)));
+
         let unary = op('-')
             .repeated()
-            .then(atom.clone())
+            .then(unary_suffix.clone())
             .foldr(|_op, rhs| Expr::Neg(Box::new(rhs)));
 
         let pow = unary
@@ -219,6 +226,8 @@ mod tests {
         parse("1.0/1.0");
         parse("-1.0 / -1.0");
         parse("2^0");
+        parse("-3 * -1");
+        parse("2*20%");
     }
 
     #[test]
@@ -228,6 +237,8 @@ mod tests {
         parse("3*  4+10");
         parse("2^2+5/2");
         parse("2^3*3");
+        parse("--(3)");
+        parse("2*-20%%%");
     }
 
     #[test]
