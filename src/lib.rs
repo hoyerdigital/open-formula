@@ -1,8 +1,8 @@
-use chumsky::{prelude::*, primitive::Container};
+use chumsky::prelude::*;
 use enum_as_inner::EnumAsInner;
 
 #[derive(Debug, Clone, PartialEq)]
-enum Comp {
+pub enum Comp {
     Equal,
     NotEqual,
     Lower,
@@ -12,7 +12,7 @@ enum Comp {
 }
 
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
-enum Expr {
+pub enum Expr {
     Num(f64),
     String(String),
     Neg(Box<Self>),
@@ -27,7 +27,7 @@ enum Expr {
     CellRange((String, usize), (String, usize)),
 }
 
-fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
+pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
     let expr = recursive(|expr| {
         let uppercase = filter::<_, _, Simple<char>>(char::is_ascii_uppercase)
             .repeated()
