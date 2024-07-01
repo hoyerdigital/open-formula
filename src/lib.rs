@@ -22,6 +22,7 @@ pub enum Expr {
     Mul(Box<Self>, Box<Self>),
     Div(Box<Self>, Box<Self>),
     Pow(Box<Self>, Box<Self>),
+    Concat(Box<Self>, Box<Self>),
     Cond(Comp, Box<Self>, Box<Self>),
     Func(String, Vec<Self>),
     CellRef(String, usize),
@@ -82,17 +83,17 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
 
         let op = |c| just(c).padded();
 
-        let unary_suffix = atom
+        let unary = op('-')
+            .repeated()
+            .then(atom.clone())
+            .foldr(|_op, rhs| Expr::Neg(Box::new(rhs)));
+
+        let unary_suffix = unary
             .clone()
             .then(op('%').repeated())
             .foldl(|lhs, _op| Expr::Perc(Box::new(lhs)));
 
-        let unary = op('-')
-            .repeated()
-            .then(unary_suffix.clone())
-            .foldr(|_op, rhs| Expr::Neg(Box::new(rhs)));
-
-        let pow = unary
+        let pow = unary_suffix
             .clone()
             .then(
                 op('^')
@@ -124,6 +125,16 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             )
             .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
+        let conc = sum
+            .clone()
+            .then(
+                op('&')
+                    .to(Expr::Concat as fn(_, _) -> _)
+                    .then(sum)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+
         let comp = choice::<_, Simple<char>>((
             just("<>").to(Comp::NotEqual),
             just(">=").to(Comp::GreaterEqual),
@@ -132,11 +143,12 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             just(">").to(Comp::Greater),
             just("<").to(Comp::Lower),
         ));
-        let cond = sum
+
+        let cond = conc
             .clone()
             .then(
                 comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
-                    .then(sum)
+                    .then(conc)
                     .repeated(),
             )
             .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
@@ -239,6 +251,7 @@ mod tests {
         parse("2^3*3");
         parse("--(3)");
         parse("2*-20%%%");
+        parse("\"A\" &\"B\"");
     }
 
     #[test]
