@@ -1,6 +1,6 @@
 use crate::types::{Comp, Expr};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, derive_more::Display, derive_more::Error)]
 pub enum Error {
     ColumnIndexOutOfBounds,
     MultipleRowsReferenced,
