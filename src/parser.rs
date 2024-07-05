@@ -1,6 +1,6 @@
 use chumsky::prelude::*;
 
-use crate::{Comp, Expr};
+use crate::types::{Comp, Expr};
 
 pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
     let expr = recursive(|expr| {

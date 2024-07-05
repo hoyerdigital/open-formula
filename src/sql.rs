@@ -1,4 +1,4 @@
-use crate::{Comp, Expr};
+use crate::types::{Comp, Expr};
 
 #[derive(Debug, PartialEq)]
 pub enum Error {
@@ -67,7 +67,7 @@ fn transform_<'a>(expr: &'a Expr, ctx: &mut Context) -> Result<String, Error> {
             transform_(b, ctx)?
         )),
         Expr::CellRef(cell, num) => {
-            let id = crate::column_to_id(cell).map_err(|_| Error::MalformedCellIndex)?;
+            let id = crate::helpers::column_to_id(cell).map_err(|_| Error::MalformedCellIndex)?;
             // check if index is out of bounds
             if id + 1 > ctx.columns.len() {
                 return Err(Error::ColumnIndexOutOfBounds);
