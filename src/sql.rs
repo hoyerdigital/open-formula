@@ -24,16 +24,16 @@ fn comp_sql(c: &Comp) -> &'static str {
     }
 }
 
-pub fn transform<'a>(expr: &'a Expr) -> Result<String, Error> {
+pub fn transform(expr: &Expr) -> Result<String, Error> {
     transform_with_columns(expr, &vec![])
 }
 
-pub fn transform_with_columns<'a>(expr: &'a Expr, columns: &Vec<String>) -> Result<String, Error> {
+pub fn transform_with_columns(expr: &Expr, columns: &Vec<String>) -> Result<String, Error> {
     let mut ctx = Context { columns, row: None };
     transform_(expr, &mut ctx)
 }
 
-fn transform_<'a>(expr: &'a Expr, ctx: &mut Context) -> Result<String, Error> {
+fn transform_(expr: &Expr, ctx: &mut Context) -> Result<String, Error> {
     match expr {
         Expr::Num(n) => Ok(format!("{:}", n)),
         Expr::Bool(b) => {
@@ -43,7 +43,7 @@ fn transform_<'a>(expr: &'a Expr, ctx: &mut Context) -> Result<String, Error> {
                 Ok("0".into())
             }
         }
-        Expr::String(s) => Ok(format!("'{}'", s.replace("'", "''"))),
+        Expr::String(s) => Ok(format!("'{}'", s.replace('\'', "''"))),
         Expr::Perc(a) => Ok(format!("({}/100.0)", transform_(a, ctx)?)),
         Expr::Neg(a) => Ok(format!("-{}", transform_(a, ctx)?)),
         Expr::Add(a, b) => Ok(format!("{} + {}", transform_(a, ctx)?, transform_(b, ctx)?)),

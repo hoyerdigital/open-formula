@@ -1,12 +1,18 @@
-pub fn column_to_id<S: AsRef<str>>(col: S) -> Result<usize, ()> {
+#[derive(Debug, PartialEq, derive_more::Display, derive_more::Error)]
+pub enum Error {
+    EmptyReference,
+    MalformedReference,
+}
+
+pub fn column_to_id<S: AsRef<str>>(col: S) -> Result<usize, Error> {
     let col = col.as_ref();
     let len = col.len();
     if len == 0 {
-        return Err(());
+        return Err(Error::EmptyReference);
     }
     let col = col.to_uppercase().chars().collect::<String>();
     if !col.chars().all(|x| char::is_ascii_uppercase(&x)) {
-        return Err(());
+        return Err(Error::MalformedReference);
     }
     let mut sum = 0;
     for c in col.chars() {
@@ -33,8 +39,8 @@ mod tests {
         assert_eq!(column_to_id("AB"), Ok(27));
         assert_eq!(column_to_id("XFD"), Ok(16383));
 
-        assert_eq!(column_to_id(""), Err(()));
-        assert_eq!(column_to_id("%"), Err(()));
-        assert_eq!(column_to_id("A0F"), Err(()));
+        assert_eq!(column_to_id(""), Err(Error::EmptyReference));
+        assert_eq!(column_to_id("%"), Err(Error::MalformedReference));
+        assert_eq!(column_to_id("A0F"), Err(Error::MalformedReference));
     }
 }

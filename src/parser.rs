@@ -11,16 +11,12 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
         let cellref = uppercase
             .then(text::digits(10))
             .map(|(cell, num)| Expr::CellRef(cell, num.parse::<usize>().unwrap()));
-        let cellrange = cellref
-            .clone()
-            .then_ignore(just(":"))
-            .then(cellref.clone())
-            .map(|(a, b)| {
-                // FIXME: .as_cell_ref returns (&a0, &a1), which is not (a0, a1), can this be converted better?
-                let (a0, a1) = a.as_cell_ref().unwrap();
-                let (b0, b1) = b.as_cell_ref().unwrap();
-                Expr::CellRange((a0.clone(), *a1), (b0.clone(), *b1))
-            });
+        let cellrange = cellref.then_ignore(just(":")).then(cellref).map(|(a, b)| {
+            // FIXME: .as_cell_ref returns (&a0, &a1), which is not (a0, a1), can this be converted better?
+            let (a0, a1) = a.as_cell_ref().unwrap();
+            let (b0, b1) = b.as_cell_ref().unwrap();
+            Expr::CellRange((a0.clone(), *a1), (b0.clone(), *b1))
+        });
         let ident = text::ident().padded();
         let num = text::int(10)
             // TODO: make decimal point character configurable
@@ -123,16 +119,13 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             just("<").to(Comp::Lower),
         ));
 
-        let cond = conc
-            .clone()
+        conc.clone()
             .then(
                 comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
                     .then(conc)
                     .repeated(),
             )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
-
-        cond
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)))
     });
 
     expr.then_ignore(end())
