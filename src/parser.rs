@@ -11,6 +11,10 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
         let cellref = uppercase
             .then(text::digits(10))
             .map(|(cell, num)| Expr::CellRef(cell, num.parse::<usize>().unwrap()));
+        let columnrange = uppercase
+            .then_ignore(just(":"))
+            .then(uppercase)
+            .map(|(a, b)| Expr::ColumnRange(a, b));
         let cellrange = cellref.then_ignore(just(":")).then(cellref).map(|(a, b)| {
             // FIXME: .as_cell_ref returns (&a0, &a1), which is not (a0, a1), can this be converted better?
             let (a0, a1) = a.as_cell_ref().unwrap();
@@ -51,6 +55,7 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .or(num)
             .or(bool)
             .or(str_)
+            .or(columnrange)
             .or(cellrange)
             .or(cellref)
             .or(call)
@@ -168,6 +173,13 @@ mod tests {
     fn simple_cellref() {
         assert_eq!(parse("A1"), Expr::CellRef("A".into(), 1));
         assert_eq!(parse("XY23"), Expr::CellRef("XY".into(), 23));
+    }
+
+    #[test]
+    fn simple_columnrange() {
+        assert_eq!(parse("A:A"), Expr::ColumnRange("A".into(), "A".into()));
+        assert_eq!(parse("H:H"), Expr::ColumnRange("H".into(), "H".into()));
+        assert_eq!(parse("B:AB"), Expr::ColumnRange("B".into(), "AB".into()));
     }
 
     #[test]

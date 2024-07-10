@@ -26,5 +26,6 @@ pub enum Expr {
     Cond(Comp, Box<Self>, Box<Self>),
     Func(String, Vec<Self>),
     CellRef(String, usize),
+    ColumnRange(String, String),
     CellRange((String, usize), (String, usize)),
 }

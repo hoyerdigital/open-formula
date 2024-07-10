@@ -83,9 +83,20 @@ fn transform_(expr: &Expr, ctx: &mut Context) -> Result<String, Error> {
 
             Ok(ctx.columns.get(id).unwrap().clone())
         }
-        _ => {
-            todo!()
+        Expr::Func(f, args) => {
+            // TODO: map common formula functions to sql logic
+
+            // direct translation to sql functions as a fallback
+            Ok(format!(
+                "{}({})",
+                f,
+                args.iter()
+                    .map(|x| transform_(x, ctx))
+                    .collect::<Result<Vec<_>, _>>()?
+                    .join(",")
+            ))
         }
+        _ => todo!(),
     }
 }
 
