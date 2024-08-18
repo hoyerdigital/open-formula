@@ -1,4 +1,5 @@
 use chumsky::prelude::*;
+pub use chumsky::Parser;
 
 use crate::types::{Comp, Expr};
 
@@ -10,7 +11,12 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .collect::<String>();
         let cellref = uppercase
             .then(text::digits(10))
-            .map(|(cell, num)| Expr::CellRef(cell, num.parse::<usize>().unwrap()));
+            .try_map(|(cell, num), span| {
+                let int = num
+                    .parse::<usize>()
+                    .map_err(|e| Simple::custom(span, format!("{}", e)))?;
+                Ok(Expr::CellRef(cell, int))
+            });
         let columnrange = uppercase
             .then_ignore(just(":"))
             .then(uppercase)
