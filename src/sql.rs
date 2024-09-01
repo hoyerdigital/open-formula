@@ -1,4 +1,4 @@
-use crate::types::{Comp, Expr};
+use crate::types::{Comp, Expr, Ref};
 
 #[derive(Debug, PartialEq, derive_more::Display, derive_more::Error)]
 pub enum Error {
@@ -66,7 +66,7 @@ fn transform_(expr: &Expr, ctx: &mut Context) -> Result<String, Error> {
             comp_sql(c),
             transform_(b, ctx)?
         )),
-        Expr::CellRef(cell, num) => {
+        Expr::Ref(Ref::CellRef(cell, num)) => {
             let id = crate::helpers::column_to_id(cell).map_err(|_| Error::MalformedCellIndex)?;
             // check if index is out of bounds
             if id + 1 > ctx.columns.len() {
@@ -120,7 +120,7 @@ mod tests {
         let cols = ["foo", "bar", "baz"].map(String::from).to_vec();
         let check_ref = |a: &'static str, b| {
             assert_eq!(
-                transform_with_columns(&Expr::CellRef(a.into(), 1), &cols).unwrap(),
+                transform_with_columns(&Expr::Ref(Ref::CellRef(a.into(), 1)), &cols).unwrap(),
                 b
             );
         };
@@ -134,7 +134,7 @@ mod tests {
         let cols = ["foo", "bar", "baz"].map(String::from).to_vec();
         let check_ref = |col: &'static str, row: usize, e: Error| {
             assert_eq!(
-                transform_with_columns(&Expr::CellRef(col.into(), row), &cols),
+                transform_with_columns(&Expr::Ref(Ref::CellRef(col.into(), row)), &cols),
                 Err(e)
             );
         };
@@ -152,7 +152,10 @@ mod tests {
         let cols = ["foo", "bar", "baz"].map(String::from).to_vec();
         let check_refs = |rows: Vec<usize>, e: Result<String, Error>| {
             let expr = rows.iter().fold(Expr::Num(0.0), |sum, x| {
-                Expr::Add(Box::new(sum), Box::new(Expr::CellRef("A".into(), *x)))
+                Expr::Add(
+                    Box::new(sum),
+                    Box::new(Expr::Ref(Ref::CellRef("A".into(), *x))),
+                )
             });
             assert_eq!(transform_with_columns(&expr, &cols), e);
         };

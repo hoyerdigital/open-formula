@@ -25,6 +25,11 @@ pub enum Expr {
     Concat(Box<Self>, Box<Self>),
     Cond(Comp, Box<Self>, Box<Self>),
     Func(String, Vec<Self>),
+    Ref(Ref),
+}
+
+#[derive(Debug, Clone, EnumAsInner, PartialEq)]
+pub enum Ref {
     CellRef(String, usize),
     ColumnRange(String, String),
     CellRange((String, usize), (String, usize)),
