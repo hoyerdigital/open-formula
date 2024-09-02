@@ -34,3 +34,14 @@ pub enum Ref {
     ColumnRange(String, String),
     CellRange((String, usize), (String, usize)),
 }
+
+impl Expr {
+    pub fn refs(&self) -> Box<dyn Iterator<Item = Ref>> {
+        match self {
+            Expr::Perc(a) | Expr::Neg(a) => a.refs(),
+            Expr::Add(a, b) => Box::new(a.refs().chain(b.refs())),
+            Expr::Ref(r) => Box::new(std::iter::once(r.clone())),
+            _ => Box::new(std::iter::empty()),
+        }
+    }
+}
