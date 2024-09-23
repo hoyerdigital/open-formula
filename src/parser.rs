@@ -147,9 +147,7 @@ mod tests {
     use super::*;
 
     fn parse(input: &str) -> Expr {
-        let (res, errs) = parser().parse_recovery_verbose(input);
-        dbg!(res.clone());
-        dbg!(errs);
+        let (res, _errs) = parser().parse_recovery_verbose(input);
         res.unwrap()
     }
 
