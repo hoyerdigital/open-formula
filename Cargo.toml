@@ -10,4 +10,6 @@ enum-as-inner = "0.6.0"
 
 [dev-dependencies]
 ariadne = "0.4.1"
+dir-test = "0.3.0"
 inquire = "0.7.5"
+spreadsheet-ods = "0.22.5"
