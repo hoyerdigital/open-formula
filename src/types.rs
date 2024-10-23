@@ -1,6 +1,25 @@
 use enum_as_inner::EnumAsInner;
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum Error {
+    DIV0,
+    NAME,
+    NA,
+    NULL,
+    NUM,
+    REF,
+    VALUE,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Value {
+    Num(f64),
+    String(String),
+    Bool(bool),
+    Err(Error),
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Comp {
     Equal,
     NotEqual,
@@ -28,10 +47,12 @@ pub enum Expr {
     Ref(Ref),
 }
 
+// FIXME: replace string with numbers?
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 pub enum Ref {
     CellRef(String, usize),
     ColumnRange(String, String),
+    RowRange(usize, usize),
     CellRange((String, usize), (String, usize)),
 }
 

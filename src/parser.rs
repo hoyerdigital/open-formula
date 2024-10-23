@@ -1,7 +1,10 @@
 use chumsky::prelude::*;
 pub use chumsky::Parser;
+use std::ops::Range;
 
 use crate::types::{Comp, Expr, Ref};
+
+type Span = Range<usize>;
 
 pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
     let expr = recursive(|expr| {
@@ -21,6 +24,19 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .then_ignore(just(":"))
             .then(uppercase)
             .map(|(a, b)| Expr::Ref(Ref::ColumnRange(a, b)));
+        let rowrange = text::digits(10)
+            .then_ignore(just(":"))
+            .then(text::digits(10))
+            .try_map(|(a, b): (String, String), span: Span| {
+                let span_b = span.clone();
+                let int_a = a
+                    .parse::<usize>()
+                    .map_err(|e| Simple::custom(span, format!("{}", e)))?;
+                let int_b = b
+                    .parse::<usize>()
+                    .map_err(|e| Simple::custom(span_b, format!("{}", e)))?;
+                Ok(Expr::Ref(Ref::RowRange(int_a, int_b)))
+            });
         let cellrange = cellref.then_ignore(just(":")).then(cellref).map(|(a, b)| {
             // FIXME: .as_cell_ref returns (&a0, &a1), which is not (a0, a1), can this be converted better?
             let (a0, a1) = a.as_ref().unwrap().as_cell_ref().unwrap();
@@ -56,7 +72,8 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
         ))
         .padded();
 
-        let atom = num
+        // FIXME: check for proper order of "or"-calls
+        let atom = rowrange
             .or(expr.delimited_by(just('('), just(')')))
             .or(num)
             .or(bool)
@@ -148,6 +165,7 @@ mod tests {
 
     fn parse(input: &str) -> Expr {
         let (res, _errs) = parser().parse_recovery_verbose(input);
+        dbg!(_errs);
         res.unwrap()
     }
 
@@ -193,6 +211,13 @@ mod tests {
             parse("B:AB"),
             Expr::Ref(Ref::ColumnRange("B".into(), "AB".into()))
         );
+    }
+
+    #[test]
+    fn simple_rowrange() {
+        assert_eq!(parse("3:3"), Expr::Ref(Ref::RowRange(3, 3)));
+        assert_eq!(parse("1:5"), Expr::Ref(Ref::RowRange(1, 5)));
+        assert_eq!(parse("21:9"), Expr::Ref(Ref::RowRange(21, 9)));
     }
 
     #[test]
