@@ -1,6 +1,7 @@
 use ahash::AHashMap;
+use log::trace;
 
-use crate::types::{Error, Expr, Value};
+use crate::types::{Error, Expr, Ref, Value};
 pub use chumsky::Parser;
 
 #[derive(Debug, Clone)]
@@ -58,9 +59,87 @@ impl Sheet {
     }
 }
 
-pub fn eval(_sheet: &Sheet, _expr: &Expr) -> Value {
-    // TODO: implement actual evaluation
-    Value::Err(Error::NAME)
+// TODO: handle implicit string (or other type) to number conversion
+// see https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html#ConversionToNumber
+fn eval_to_num<F>(sheet: &Sheet, expr: &Expr, f: F) -> Value
+where
+    F: Fn(f64) -> Value,
+{
+    let v = eval(sheet, expr);
+    match v {
+        Value::Num(n) => f(n),
+        _ => Value::Err(Error::Value),
+    }
+}
+
+// TODO: generalize eval_to_num to n parameters? maybe with generics and/or tuples
+// TODO: handle implicit string (or other type) to number conversion
+// see https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html#ConversionToNumber
+fn eval_to_num_2<F>(sheet: &Sheet, lhs: &Expr, rhs: &Expr, f: F) -> Value
+where
+    F: Fn(f64, f64) -> Value,
+{
+    let vl = eval(sheet, lhs);
+    let vr = eval(sheet, rhs);
+    if let (Value::Num(vl), Value::Num(vr)) = (vl, vr) {
+        f(vl, vr)
+    } else {
+        Value::Err(Error::Value)
+    }
+}
+
+fn column_letter_to_number<F>(s: &str, f: F) -> Value
+where
+    F: Fn(usize) -> Value,
+{
+    let mut num: usize = 0;
+    for (cnt, c) in s.chars().enumerate() {
+        if !c.is_ascii_uppercase() {
+            return Value::Err(Error::Ref);
+        }
+        num += ((c as usize) - 64) + (cnt * 26);
+    }
+    f(num)
+}
+
+fn eval_ref(sheet: &Sheet, r: &Ref) -> Value {
+    match r {
+        Ref::CellRef(col, y) => column_letter_to_number(col, |x| {
+            let cell = sheet.get(x - 1, *y - 1);
+            if let Some(cell) = cell {
+                if let Some(val) = cell.value.clone() {
+                    val
+                } else {
+                    Value::Err(Error::Ref)
+                }
+            } else {
+                Value::Err(Error::Ref)
+            }
+        }),
+        _ => Value::Err(Error::Ref),
+    }
+}
+
+pub fn eval(sheet: &Sheet, expr: &Expr) -> Value {
+    trace!("{:?}", expr);
+    let v = match expr {
+        Expr::Num(n) => Value::Num(*n),
+        Expr::Bool(b) => Value::Bool(*b),
+        Expr::String(s) => Value::String(s.clone()),
+        Expr::Perc(e) => eval_to_num(sheet, e, |n| Value::Num(n / 100.0)),
+        Expr::Neg(e) => eval_to_num(sheet, e, |n| Value::Num(-n)),
+        Expr::Add(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l + r)),
+        Expr::Sub(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l - r)),
+        Expr::Mul(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l * r)),
+        // FIXME: handle division by zero
+        Expr::Div(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l / r)),
+        Expr::Pow(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l.powf(r))),
+
+        Expr::Ref(r) => eval_ref(sheet, r),
+        _ => Value::Err(Error::Unimplemented),
+    };
+    trace!("{:?} →  {:?}", expr, v);
+    v
 }
 
 #[cfg(test)]

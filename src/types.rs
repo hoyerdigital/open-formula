@@ -1,14 +1,26 @@
 use enum_as_inner::EnumAsInner;
 
+pub enum Mode {
+    Default,
+    OpenDocument,
+    GoogleSheets,
+    Excel,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Error {
-    DIV0,
-    NAME,
-    NA,
-    NULL,
-    NUM,
-    REF,
-    VALUE,
+    // OpenDocument / Google Sheets / Excel
+    Null,
+    Div0,
+    Value,
+    Ref,
+    Name,
+    Num,
+    NotAvailable,
+    // Excel
+    GettingData,
+    // Custom
+    Unimplemented,
 }
 
 #[derive(Debug, Clone, PartialEq)]
