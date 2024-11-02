@@ -5,8 +5,8 @@ pub use chumsky::Parser;
 
 #[derive(Debug, Clone)]
 pub struct Cell {
-    value: Option<Value>,
-    expr: Option<Expr>,
+    pub value: Option<Value>,
+    pub expr: Option<Expr>,
 }
 
 #[derive(Debug)]
@@ -22,13 +22,35 @@ impl Default for Sheet {
     }
 }
 
+pub struct SheetCellsIter<'a> {
+    iter: std::collections::hash_map::Iter<'a, (usize, usize), Cell>,
+}
+
+impl<'a> Iterator for SheetCellsIter<'a> {
+    type Item = ((usize, usize), &'a Cell);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|((x, y), c)| ((*x, *y), c))
+    }
+}
+
 impl Sheet {
-    pub fn has_value(&self, x: usize, y: usize) -> bool {
+    pub fn has_cell(&self, x: usize, y: usize) -> bool {
         self.map.contains_key(&(x, y))
     }
 
-    pub fn get(&self, x: usize, y: usize) -> Option<Cell> {
-        self.map.get(&(x, y)).cloned()
+    pub fn get(&self, x: usize, y: usize) -> Option<&Cell> {
+        self.map.get(&(x, y))
+    }
+
+    pub fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut Cell> {
+        self.map.get_mut(&(x, y))
+    }
+
+    pub fn iter(&self) -> SheetCellsIter {
+        SheetCellsIter {
+            iter: self.map.iter(),
+        }
     }
 
     pub fn set(&mut self, x: usize, y: usize, cell: Cell) -> Option<Cell> {
@@ -36,11 +58,18 @@ impl Sheet {
     }
 }
 
+pub fn eval(_sheet: &Sheet, _expr: &Expr) -> Value {
+    // TODO: implement actual evaluation
+    Value::Err(Error::NAME)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::parser::parser;
     use dir_test::{dir_test, Fixture};
+    use log::trace;
+    use test_log::test;
 
     fn ods_to_value(value: &spreadsheet_ods::Value) -> Option<Value> {
         use spreadsheet_ods::Value as ods;
@@ -62,7 +91,6 @@ mod tests {
         let re = regex::Regex::new(r"\[.([A-Z0-9]+)((:)\.([A-Z0-9]+))?\]").unwrap();
         let formula = re.replace_all(formula, "$1$3$4").into_owned();
 
-        dbg!(formula.clone());
         // FIXME: proper checking/parsing (remove unwraps)
         let (res, _errs) = parser().parse_recovery_verbose(formula);
         res.unwrap()
@@ -70,11 +98,9 @@ mod tests {
 
     fn load_ods(path: &'static str) -> Sheet {
         let mut sheet = Sheet::default();
-        dbg!(path);
         let wb = spreadsheet_ods::read_ods(path).unwrap();
         let ods_sheet = wb.sheet(0);
         ods_sheet.iter().fold((), |_, ((row, col), cell)| {
-            dbg!(row, col, cell.value(), cell.formula());
             let cell = Cell {
                 value: ods_to_value(cell.value()),
                 expr: cell.formula().map(|f| ods_to_expr(f)),
@@ -90,6 +116,15 @@ mod tests {
         loader: load_ods,
     )]
     fn test_ods(fixture: Fixture<Sheet>) {
-        dbg!(fixture.content());
+        let sheet = fixture.content();
+        for ((x, y), cell) in sheet.iter() {
+            trace!("{},{}: {:?}", x, y, cell);
+            if cell.value.is_some() && cell.expr.is_some() {
+                let val = cell.value.clone().unwrap();
+                let expr = cell.expr.clone().unwrap();
+                let eval_val = eval(sheet, &expr);
+                assert_eq!(val, eval_val);
+            }
+        }
     }
 }

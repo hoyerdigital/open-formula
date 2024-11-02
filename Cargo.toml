@@ -8,10 +8,13 @@ ahash = "0.8.11"
 chumsky = "0.9.3"
 derive_more = { version = "1.0.0", features = ["full"] }
 enum-as-inner = "0.6.0"
+log = "0.4.22"
 regex = "1.11.0"
 
 [dev-dependencies]
 ariadne = "0.4.1"
 dir-test = "0.3.0"
+env_logger = "0.11.5"
 inquire = "0.7.5"
 spreadsheet-ods = "0.22.5"
+test-log = "0.2.16"
