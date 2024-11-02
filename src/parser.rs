@@ -162,10 +162,14 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use log::error;
+    use test_log::test;
 
     fn parse(input: &str) -> Expr {
-        let (res, _errs) = parser().parse_recovery_verbose(input);
-        dbg!(_errs);
+        let (res, errs) = parser().parse_recovery_verbose(input);
+        if !errs.is_empty() {
+            error!("{:?}", errs);
+        }
         res.unwrap()
     }
 

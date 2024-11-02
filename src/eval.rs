@@ -105,6 +105,8 @@ where
 fn eval_ref(sheet: &Sheet, r: &Ref) -> Value {
     match r {
         Ref::CellRef(col, y) => column_letter_to_number(col, |x| {
+            // single cell reference is called a "criterion"
+            // see https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html#Criterion
             let cell = sheet.get(x - 1, *y - 1);
             if let Some(cell) = cell {
                 if let Some(val) = cell.value.clone() {
@@ -113,7 +115,7 @@ fn eval_ref(sheet: &Sheet, r: &Ref) -> Value {
                     Value::Err(Error::Ref)
                 }
             } else {
-                Value::Err(Error::Ref)
+                Value::Num(0f64)
             }
         }),
         _ => Value::Err(Error::Ref),
@@ -179,12 +181,13 @@ mod tests {
         let mut sheet = Sheet::default();
         let wb = spreadsheet_ods::read_ods(path).unwrap();
         let ods_sheet = wb.sheet(0);
-        ods_sheet.iter().fold((), |_, ((row, col), cell)| {
+        ods_sheet.iter().fold((), |_, ((y, x), cell)| {
             let cell = Cell {
                 value: ods_to_value(cell.value()),
                 expr: cell.formula().map(|f| ods_to_expr(f)),
             };
-            sheet.set(row as usize, col as usize, cell);
+            trace!("{}, {}: {:?}", x, y, cell);
+            sheet.set(x as usize, y as usize, cell);
         });
         sheet
     }
