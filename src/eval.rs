@@ -1,7 +1,7 @@
 use ahash::AHashMap;
 use log::trace;
 
-use crate::types::{Error, Expr, Ref, Value};
+use crate::types::{Error, Expr, Ref, Type, Value};
 pub use chumsky::Parser;
 
 #[derive(Debug, Clone)]
@@ -59,28 +59,23 @@ impl Sheet {
     }
 }
 
-// TODO: handle implicit string (or other type) to number conversion
-// see https://docs.oasis-open.org/office/OpenDocument/v1.4/OpenDocument-v1.4-part4-formula.html#Conversion_to_Number
 fn eval_to_num<F>(sheet: &Sheet, expr: &Expr, f: F) -> Value
 where
     F: Fn(f64) -> Value,
 {
-    let v = eval(sheet, expr);
+    let v = eval_with_type(sheet, expr, &Type::Number);
     match v {
         Value::Num(n) => f(n),
         _ => Value::Err(Error::Value),
     }
 }
 
-// TODO: generalize eval_to_num to n parameters? maybe with generics and/or tuples
-// TODO: handle implicit string (or other type) to number conversion
-// see https://docs.oasis-open.org/office/OpenDocument/v1.4/OpenDocument-v1.4-part4-formula.html#Conversion_to_Number
 fn eval_to_num_2<F>(sheet: &Sheet, lhs: &Expr, rhs: &Expr, f: F) -> Value
 where
     F: Fn(f64, f64) -> Value,
 {
-    let vl = eval(sheet, lhs);
-    let vr = eval(sheet, rhs);
+    let vl = eval_with_type(sheet, lhs, &Type::Number);
+    let vr = eval_with_type(sheet, rhs, &Type::Number);
     if let (Value::Num(vl), Value::Num(vr)) = (vl, vr) {
         f(vl, vr)
     } else {
@@ -109,6 +104,10 @@ fn eval_ref(sheet: &Sheet, r: &Ref) -> Value {
 }
 
 pub fn eval(sheet: &Sheet, expr: &Expr) -> Value {
+    eval_with_type(sheet, expr, &Type::Any)
+}
+
+pub fn eval_with_type(sheet: &Sheet, expr: &Expr, expected_type: &Type) -> Value {
     trace!("{:?}", expr);
     let v = match expr {
         Expr::Num(n) => Value::Num(*n),
@@ -119,15 +118,44 @@ pub fn eval(sheet: &Sheet, expr: &Expr) -> Value {
         Expr::Add(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l + r)),
         Expr::Sub(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l - r)),
         Expr::Mul(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l * r)),
-        // FIXME: handle division by zero
-        Expr::Div(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l / r)),
+        Expr::Div(l, r) => eval_to_num_2(sheet, l, r, |l, r| {
+            if r == 0.0 {
+                Value::Err(Error::Div0)
+            } else {
+                Value::Num(l / r)
+            }
+        }),
         Expr::Pow(l, r) => eval_to_num_2(sheet, l, r, |l, r| Value::Num(l.powf(r))),
 
         Expr::Ref(r) => eval_ref(sheet, r),
         _ => Value::Err(Error::Unimplemented),
     };
+    let v = {
+        use Type::*;
+        match expected_type {
+            Number => convert_to_number(v),
+            Any => v,
+            _ => Value::Err(crate::types::Error::Unimplemented),
+        }
+    };
     trace!("{:?} →  {:?}", expr, v);
     v
+}
+
+fn convert_to_number(v: Value) -> Value {
+    match v {
+        Value::Num(f) => Value::Num(f),
+        Value::Bool(b) => {
+            if b {
+                Value::Num(0f64)
+            } else {
+                Value::Num(1f64)
+            }
+        }
+        // TODO: Text to Number
+        // TODO: Reference to Number
+        _ => Value::Err(Error::Value),
+    }
 }
 
 #[cfg(test)]
