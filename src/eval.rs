@@ -88,26 +88,12 @@ where
     }
 }
 
-fn column_letter_to_number<F>(s: &str, f: F) -> Value
-where
-    F: Fn(usize) -> Value,
-{
-    let mut num: usize = 0;
-    for (cnt, c) in s.chars().enumerate() {
-        if !c.is_ascii_uppercase() {
-            return Value::Err(Error::Ref);
-        }
-        num += ((c as usize) - 64) + (cnt * 26);
-    }
-    f(num)
-}
-
 fn eval_ref(sheet: &Sheet, r: &Ref) -> Value {
     match r {
-        Ref::CellRef(col, y) => column_letter_to_number(col, |x| {
+        Ref::CellRef(x, y) => {
             // single cell reference is called a "criterion"
             // see https://docs.oasis-open.org/office/OpenDocument/v1.4/OpenDocument-v1.4-part4-formula.html#Criterion
-            let cell = sheet.get(x - 1, *y - 1);
+            let cell = sheet.get(x - 1, y - 1);
             if let Some(cell) = cell {
                 if let Some(val) = cell.value.clone() {
                     val
@@ -117,7 +103,7 @@ fn eval_ref(sheet: &Sheet, r: &Ref) -> Value {
             } else {
                 Value::Num(0f64)
             }
-        }),
+        }
         _ => Value::Err(Error::Ref),
     }
 }

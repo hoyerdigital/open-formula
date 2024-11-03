@@ -4,7 +4,6 @@ use crate::types::{Comp, Expr, Ref};
 pub enum Error {
     ColumnIndexOutOfBounds,
     MultipleRowsReferenced,
-    MalformedCellIndex,
 }
 
 #[derive(Debug)]
@@ -66,22 +65,21 @@ fn transform_(expr: &Expr, ctx: &mut Context) -> Result<String, Error> {
             comp_sql(c),
             transform_(b, ctx)?
         )),
-        Expr::Ref(Ref::CellRef(cell, num)) => {
-            let id = crate::helpers::column_to_id(cell).map_err(|_| Error::MalformedCellIndex)?;
+        Expr::Ref(Ref::CellRef(col, row)) => {
             // check if index is out of bounds
-            if id + 1 > ctx.columns.len() {
+            if *col > ctx.columns.len() {
                 return Err(Error::ColumnIndexOutOfBounds);
             }
             // check if all references are on the same row
             if let Some(n) = ctx.row {
-                if n != *num {
+                if n != *row {
                     return Err(Error::MultipleRowsReferenced);
                 }
             } else {
-                ctx.row = Some(*num);
+                ctx.row = Some(*row);
             }
 
-            Ok(ctx.columns.get(id).unwrap().clone())
+            Ok(ctx.columns.get(*col - 1).unwrap().clone())
         }
         Expr::Func(f, args) => {
             // TODO: map common formula functions to sql logic
@@ -118,33 +116,29 @@ mod tests {
     #[test]
     fn cell_ref() {
         let cols = ["foo", "bar", "baz"].map(String::from).to_vec();
-        let check_ref = |a: &'static str, b| {
+        let check_ref = |a, b| {
             assert_eq!(
-                transform_with_columns(&Expr::Ref(Ref::CellRef(a.into(), 1)), &cols).unwrap(),
+                transform_with_columns(&Expr::Ref(Ref::CellRef(a, 1)), &cols).unwrap(),
                 b
             );
         };
-        check_ref("A", "foo");
-        check_ref("B", "bar");
-        check_ref("C", "baz");
+        check_ref(1, "foo");
+        check_ref(2, "bar");
+        check_ref(3, "baz");
     }
 
     #[test]
     fn cell_ref_invalid() {
         let cols = ["foo", "bar", "baz"].map(String::from).to_vec();
-        let check_ref = |col: &'static str, row: usize, e: Error| {
+        let check_ref = |col: usize, row: usize, e: Error| {
             assert_eq!(
                 transform_with_columns(&Expr::Ref(Ref::CellRef(col.into(), row)), &cols),
                 Err(e)
             );
         };
-        check_ref("X", 1, Error::ColumnIndexOutOfBounds);
-        check_ref("AX", 3, Error::ColumnIndexOutOfBounds);
-        check_ref("XA", 5, Error::ColumnIndexOutOfBounds);
-        check_ref("aa", 42, Error::ColumnIndexOutOfBounds);
-        check_ref("%A", 23, Error::MalformedCellIndex);
-        check_ref("A&", 23, Error::MalformedCellIndex);
-        check_ref("!", 23, Error::MalformedCellIndex);
+        check_ref(24, 1, Error::ColumnIndexOutOfBounds);
+        check_ref(50, 3, Error::ColumnIndexOutOfBounds);
+        check_ref(625, 5, Error::ColumnIndexOutOfBounds);
     }
 
     #[test]
@@ -152,10 +146,7 @@ mod tests {
         let cols = ["foo", "bar", "baz"].map(String::from).to_vec();
         let check_refs = |rows: Vec<usize>, e: Result<String, Error>| {
             let expr = rows.iter().fold(Expr::Num(0.0), |sum, x| {
-                Expr::Add(
-                    Box::new(sum),
-                    Box::new(Expr::Ref(Ref::CellRef("A".into(), *x))),
-                )
+                Expr::Add(Box::new(sum), Box::new(Expr::Ref(Ref::CellRef(1, *x))))
             });
             assert_eq!(transform_with_columns(&expr, &cols), e);
         };

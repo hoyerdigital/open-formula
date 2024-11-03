@@ -2,7 +2,10 @@ use chumsky::prelude::*;
 pub use chumsky::Parser;
 use std::ops::Range;
 
-use crate::types::{Comp, Expr, Ref};
+use crate::{
+    helpers::column_to_id,
+    types::{Comp, Expr, Ref},
+};
 
 type Span = Range<usize>;
 
@@ -14,11 +17,13 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             .collect::<String>();
         let cellref = uppercase
             .then(text::digits(10))
-            .try_map(|(cell, num), span| {
-                let int = num
+            .try_map(|(col_num, row_num), span| {
+                let row = row_num
                     .parse::<usize>()
-                    .map_err(|e| Simple::custom(span, format!("{}", e)))?;
-                Ok(Expr::Ref(Ref::CellRef(cell, int)))
+                    .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?;
+                let col =
+                    column_to_id(col_num).map_err(|e| Simple::custom(span, format!("{}", e)))?;
+                Ok(Expr::Ref(Ref::CellRef(col, row)))
             });
         let columnrange = uppercase
             .then_ignore(just(":"))
@@ -86,6 +91,7 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
 
         let op = |c| just(c).padded();
 
+        // TODO: add unary "+" prefix
         let unary = op('-')
             .repeated()
             .then(atom.clone())
@@ -197,8 +203,8 @@ mod tests {
 
     #[test]
     fn simple_cellref() {
-        assert_eq!(parse("A1"), Expr::Ref(Ref::CellRef("A".into(), 1)));
-        assert_eq!(parse("XY23"), Expr::Ref(Ref::CellRef("XY".into(), 23)));
+        assert_eq!(parse("A1"), Expr::Ref(Ref::CellRef(1, 1)));
+        assert_eq!(parse("XY23"), Expr::Ref(Ref::CellRef(649, 23)));
     }
 
     #[test]
@@ -226,13 +232,10 @@ mod tests {
 
     #[test]
     fn simple_cellrange() {
-        assert_eq!(
-            parse("A1:Z99"),
-            Expr::Ref(Ref::CellRange(("A".into(), 1), ("Z".into(), 99)))
-        );
+        assert_eq!(parse("A1:Z99"), Expr::Ref(Ref::CellRange((1, 1), (26, 99))));
         assert_eq!(
             parse("AA23:BB42"),
-            Expr::Ref(Ref::CellRange(("AA".into(), 23), ("BB".into(), 42)))
+            Expr::Ref(Ref::CellRange((27, 23), (54, 42)))
         );
     }
 

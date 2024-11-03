@@ -62,10 +62,10 @@ pub enum Expr {
 // FIXME: replace string with numbers?
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 pub enum Ref {
-    CellRef(String, usize),
+    CellRef(usize, usize),
     ColumnRange(String, String),
     RowRange(usize, usize),
-    CellRange((String, usize), (String, usize)),
+    CellRange((usize, usize), (usize, usize)),
 }
 
 impl Expr {
