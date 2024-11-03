@@ -63,7 +63,7 @@ pub enum Expr {
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 pub enum Ref {
     CellRef(usize, usize),
-    ColumnRange(String, String),
+    ColumnRange(usize, usize),
     RowRange(usize, usize),
     CellRange((usize, usize), (usize, usize)),
 }
