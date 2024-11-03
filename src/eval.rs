@@ -60,7 +60,7 @@ impl Sheet {
 }
 
 // TODO: handle implicit string (or other type) to number conversion
-// see https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html#ConversionToNumber
+// see https://docs.oasis-open.org/office/OpenDocument/v1.4/OpenDocument-v1.4-part4-formula.html#Conversion_to_Number
 fn eval_to_num<F>(sheet: &Sheet, expr: &Expr, f: F) -> Value
 where
     F: Fn(f64) -> Value,
@@ -74,7 +74,7 @@ where
 
 // TODO: generalize eval_to_num to n parameters? maybe with generics and/or tuples
 // TODO: handle implicit string (or other type) to number conversion
-// see https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html#ConversionToNumber
+// see https://docs.oasis-open.org/office/OpenDocument/v1.4/OpenDocument-v1.4-part4-formula.html#Conversion_to_Number
 fn eval_to_num_2<F>(sheet: &Sheet, lhs: &Expr, rhs: &Expr, f: F) -> Value
 where
     F: Fn(f64, f64) -> Value,
@@ -106,7 +106,7 @@ fn eval_ref(sheet: &Sheet, r: &Ref) -> Value {
     match r {
         Ref::CellRef(col, y) => column_letter_to_number(col, |x| {
             // single cell reference is called a "criterion"
-            // see https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html#Criterion
+            // see https://docs.oasis-open.org/office/OpenDocument/v1.4/OpenDocument-v1.4-part4-formula.html#Criterion
             let cell = sheet.get(x - 1, *y - 1);
             if let Some(cell) = cell {
                 if let Some(val) = cell.value.clone() {
