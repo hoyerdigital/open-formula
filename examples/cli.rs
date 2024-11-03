@@ -1,8 +1,8 @@
-use calc_sql::parser::parser;
-use calc_sql::sql::transform_with_columns;
 use chumsky::Parser;
 use inquire::autocompletion::{Autocomplete, Replacement};
 use inquire::{CustomUserError, Text};
+use open_formula::parser::parser;
+use open_formula::sql::transform_with_columns;
 
 #[derive(Clone)]
 struct Complete {}
