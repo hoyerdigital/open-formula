@@ -52,7 +52,7 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                 // FIXME: .as_cell_ref returns (&a0, &a1), which is not (a0, a1), can this be converted better?
                 let (a0, a1) = a.as_ref().unwrap().as_cell_ref().unwrap();
                 let (b0, b1) = b.as_ref().unwrap().as_cell_ref().unwrap();
-                Expr::Ref(Ref::CellRange((a0.clone(), *a1), (b0.clone(), *b1)))
+                Expr::Ref(Ref::CellRange((*a0, *a1), (*b0, *b1)))
             });
             let ident = text::ident().padded();
             let num = text::int(10)
