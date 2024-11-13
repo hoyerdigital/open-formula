@@ -187,7 +187,8 @@ mod tests {
         let formula = re.replace_all(formula, "$1$3$4").into_owned();
 
         // FIXME: proper checking/parsing (remove unwraps)
-        let (res, _errs) = parser().parse_recovery_verbose(formula);
+        let (res, errs) = parser().parse_recovery_verbose(formula);
+        trace!("{:?}", errs);
         res.unwrap()
     }
 

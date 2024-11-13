@@ -1,10 +1,11 @@
 use chumsky::prelude::*;
-pub use chumsky::Parser;
+use chumsky::Parser;
 use std::ops::Range;
 
 use crate::{
     helpers::column_to_id,
     types::{Comp, Expr, Ref},
+    xmlchar::XmlChar,
 };
 
 type Span = Range<usize>;
@@ -54,12 +55,22 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                 let (b0, b1) = b.as_ref().unwrap().as_cell_ref().unwrap();
                 Expr::Ref(Ref::CellRange((*a0, *a1), (*b0, *b1)))
             });
-            // TODO: ident() does not allow dots
-            // https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Functions_and_Function_Parameters
-            // https://www.w3.org/TR/xml/#charsets
-            // https://docs.rs/xmlparser/latest/src/xmlparser/xmlchar.rs.html#2-86
-            // https://docs.rs/sxd-document/latest/src/sxd_document/str.rs.html#170-259
-            let ident = text::ident().padded();
+            // custom ident that differs from chumsky::text::ident, because a lot more
+            // characters are allowed
+            let ident = filter::<_, _, Simple<char>>(|c: &char| c.is_xml_letter())
+                .map(Some)
+                .chain::<char, Vec<char>, _>(
+                    filter::<_, _, Simple<char>>(|c: &char| {
+                        c.is_xml_letter()
+                            || c.is_xml_digit()
+                            || *c == '_'
+                            || *c == '.'
+                            || c.is_xml_combining_char()
+                    })
+                    .repeated(),
+                )
+                .collect()
+                .padded();
             let num = text::int(10)
                 // TODO: make decimal point character configurable
                 .then(just('.').ignore_then(text::digits(10)).or_not())
@@ -75,7 +86,6 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             let call = ident
                 .then(
                     expr.clone()
-                        // TODO: make function argument configurable (, vs ;)
                         .separated_by(just(';'))
                         .allow_trailing()
                         .collect::<Vec<_>>()
@@ -244,15 +254,15 @@ mod tests {
     #[test]
     fn simple_func() {
         assert_eq!(
-            parse("SUM(3,4)"),
+            parse("SUM(3;4)"),
             Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
         );
         assert_eq!(
-            parse("SUM(3.0,4.0)"),
+            parse("SUM(3.0;4.0)"),
             Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
         );
         assert_eq!(
-            parse("SUM(3.0 ,     4.0)"),
+            parse("SUM(3.0 ;     4.0)"),
             Expr::Func("SUM".into(), vec![Expr::Num(3.0), Expr::Num(4.0)])
         );
         assert_eq!(
@@ -260,7 +270,7 @@ mod tests {
             Expr::Func("TRUES".into(), vec![Expr::String("FOOBAR".into())])
         );
         assert_eq!(
-            parse("(SUM(\"3\",\"4\"))"),
+            parse("(SUM(\"3\";\"4\"))"),
             Expr::Func(
                 "SUM".into(),
                 vec![Expr::String("3".into()), Expr::String("4".into())]
@@ -310,7 +320,7 @@ mod tests {
     #[test]
     fn complex() {
         // TODO: add asserts
-        parse("SUM(--(FREQUENCY(IF(C5:C11=G5,MATCH(B5:B11,B5:B11,0)),ROW(B5:B11)-ROW(B5)+1)>0))");
-        parse("SUM(--(MMULT(TRANSPOSE(ROW(A1:A99)^0),--(A1:A99=I4))>0))");
+        parse("SUM(--(FREQUENCY(IF(C5:C11=G5;MATCH(B5:B11;B5:B11;0));ROW(B5:B11)-ROW(B5)+1)>0))");
+        parse("SUM(--(MMULT(TRANSPOSE(ROW(A1:A99)^0);--(A1:A99=I4))>0))");
     }
 }
