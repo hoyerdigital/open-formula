@@ -1,4 +1,5 @@
 use enum_as_inner::EnumAsInner;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 pub enum Mode {
     Default,
@@ -7,20 +8,21 @@ pub enum Mode {
     Excel,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[repr(u8)]
 pub enum Error {
     // OpenDocument / Google Sheets / Excel
-    Null,
-    Div0,
-    Value,
-    Ref,
-    Name,
-    Num,
-    NotAvailable,
+    Null = 1,
+    Div0 = 2,
+    Value = 3,
+    Ref = 4,
+    Name = 5,
+    Num = 6,
+    NotAvailable = 7,
     // Excel
-    GettingData,
+    GettingData = 8,
     // Custom
-    Unimplemented,
+    Unimplemented = 9,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -9,6 +9,7 @@ chumsky = "0.9.3"
 derive_more = { version = "1.0.0", features = ["full"] }
 enum-as-inner = "0.6.0"
 log = "0.4.22"
+num_enum = "0.7.3"
 
 [dev-dependencies]
 regex = "1.11.0"

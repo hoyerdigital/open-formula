@@ -54,6 +54,11 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                 let (b0, b1) = b.as_ref().unwrap().as_cell_ref().unwrap();
                 Expr::Ref(Ref::CellRange((*a0, *a1), (*b0, *b1)))
             });
+            // TODO: ident() does not allow dots
+            // https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Functions_and_Function_Parameters
+            // https://www.w3.org/TR/xml/#charsets
+            // https://docs.rs/xmlparser/latest/src/xmlparser/xmlchar.rs.html#2-86
+            // https://docs.rs/sxd-document/latest/src/sxd_document/str.rs.html#170-259
             let ident = text::ident().padded();
             let num = text::int(10)
                 // TODO: make decimal point character configurable
@@ -71,7 +76,7 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                 .then(
                     expr.clone()
                         // TODO: make function argument configurable (, vs ;)
-                        .separated_by(just(','))
+                        .separated_by(just(';'))
                         .allow_trailing()
                         .collect::<Vec<_>>()
                         .delimited_by(just('('), just(')')),
