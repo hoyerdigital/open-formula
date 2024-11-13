@@ -1,3 +1,4 @@
+pub mod conversion;
 pub mod eval;
 pub mod helpers;
 pub mod parser;

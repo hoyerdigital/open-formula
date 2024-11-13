@@ -26,53 +26,13 @@ pub enum Error {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Type {
-    String,
-
-    // Number
-    Number,
-    Time,
-    Date,
-    DateTime,
-    Percentage,
-    Currency,
-
-    ComplexNumber,
-    Logical,
-    Error,
-    EmptyCell,
-    Reference,
-    ReferenceList,
-    Array,
-
-    // Pseudotypes
-    Scalar,
-    DateParam,
-    TimeParam,
-    Integer,
-    TextOrNumber,
-    Basis,
-    Criterion,
-    Database,
-    Field,
-    Criteria,
-
-    //Sequences
-    NumberSequence,
-    NumberSequenceList,
-    DateSequence,
-    LogicalSequence,
-    ComplexSequence,
-
-    Any,
-}
-
-#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Num(f64),
     String(String),
     Bool(bool),
     Err(Error),
+    EmptyCell,
+    Ref(Ref),
 }
 
 #[derive(Debug, Clone, PartialEq)]
