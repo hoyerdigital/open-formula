@@ -18,7 +18,7 @@ pub fn column_to_id<S: AsRef<str>>(col: S) -> Result<usize, Error> {
         sum *= 26;
         sum += (c as u8) as usize - 65 + 1;
     }
-    Ok(sum)
+    Ok(sum - 1)
 }
 
 #[cfg(test)]
@@ -27,12 +27,12 @@ mod tests {
 
     #[test]
     fn column_ids() {
-        assert_eq!(column_to_id("A"), Ok(1));
-        assert_eq!(column_to_id("B"), Ok(2));
-        assert_eq!(column_to_id("C"), Ok(3));
-        assert_eq!(column_to_id("AA"), Ok(27));
-        assert_eq!(column_to_id("AB"), Ok(28));
-        assert_eq!(column_to_id("XFD"), Ok(16384));
+        assert_eq!(column_to_id("A"), Ok(0));
+        assert_eq!(column_to_id("B"), Ok(1));
+        assert_eq!(column_to_id("C"), Ok(2));
+        assert_eq!(column_to_id("AA"), Ok(26));
+        assert_eq!(column_to_id("AB"), Ok(27));
+        assert_eq!(column_to_id("XFD"), Ok(16383));
 
         assert_eq!(column_to_id(""), Err(Error::EmptyReference));
         assert_eq!(column_to_id("%"), Err(Error::MalformedReference));

@@ -5,7 +5,6 @@ use crate::{
     conversion::ConvertToNumber,
     types::{Error, Expr, Ref, Value},
 };
-pub use chumsky::Parser;
 
 #[derive(Debug, Clone)]
 pub struct Cell {
@@ -14,22 +13,15 @@ pub struct Cell {
 }
 
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct Context {
     sheet: Sheet,
+    current_loc: Option<(usize, usize)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct Sheet {
     map: AHashMap<(usize, usize), Cell>,
-}
-
-impl Default for Sheet {
-    fn default() -> Self {
-        Self {
-            map: AHashMap::new(),
-        }
-    }
 }
 
 pub struct SheetCellsIter<'a> {
@@ -92,12 +84,14 @@ where
     }
 }
 
+/// Evaluate a reference to a single cell value.
+///
+/// Apply implied intersection if multiple cells are referenced.
 pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
     match r {
+        // evaluate single cell reference
         Ref::CellRef(x, y) => {
-            // single cell reference is called a "criterion"
-            // see https://docs.oasis-open.org/office/OpenDocument/v1.4/OpenDocument-v1.4-part4-formula.html#Criterion
-            let cell = ctx.sheet.get(x - 1, y - 1);
+            let cell = ctx.sheet.get(*x, *y);
             if let Some(cell) = cell {
                 if let Some(val) = cell.value.clone() {
                     val
@@ -108,7 +102,59 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
                 Value::EmptyCell
             }
         }
-        _ => Value::Err(Error::Ref),
+        // implied intersection
+        Ref::ColumnRange(x1, x2) => {
+            if let Some((x, y)) = ctx.current_loc {
+                if *x1 != *x2 || x == *x1 {
+                    Value::Err(Error::Value)
+                } else {
+                    let r = Ref::CellRef(*x1, y);
+                    eval_ref(ctx, &r)
+                }
+            } else {
+                Value::Err(Error::Ref)
+            }
+        }
+        Ref::RowRange(y1, y2) => {
+            if let Some((x, y)) = ctx.current_loc {
+                if *y1 != *y2 || y == *y1 {
+                    Value::Err(Error::Value)
+                } else {
+                    let r = Ref::CellRef(x, *y1);
+                    eval_ref(ctx, &r)
+                }
+            } else {
+                Value::Err(Error::Ref)
+            }
+        }
+        Ref::CellRange((x1, y1), (x2, y2)) => {
+            assert!(*x1 <= *x2);
+            assert!(*y1 <= *y2);
+            if let Some((x, y)) = ctx.current_loc {
+                if x >= *x1 && x <= *x2 {
+                    // columns overlap
+                    if *y1 != *y2 || y == *y1 {
+                        Value::Err(Error::Value)
+                    } else {
+                        let r = Ref::CellRef(x, *y1);
+                        eval_ref(ctx, &r)
+                    }
+                } else if y >= *y1 && y <= *y2 {
+                    // rows overlap
+                    if *x1 != *x2 || x == *x1 {
+                        Value::Err(Error::Value)
+                    } else {
+                        let r = Ref::CellRef(*x1, y);
+                        eval_ref(ctx, &r)
+                    }
+                } else {
+                    // no overlap, intersection is empty
+                    Value::Err(Error::Value)
+                }
+            } else {
+                Value::Err(Error::Ref)
+            }
+        }
     }
 }
 
@@ -135,14 +181,17 @@ pub fn eval(ctx: &Context, expr: &Expr) -> Value {
         Expr::Ref(r) => Value::Ref(r.clone()),
         _ => Value::Err(Error::Unimplemented),
     };
-    trace!("{:?} →  {:?}", expr, v);
+    trace!("{:?} → {:?}", expr, v);
     v
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::parser;
+    use crate::{
+        conversion::ConvertToScalar,
+        parser::{parser, Parser},
+    };
     use dir_test::{dir_test, Fixture};
     use log::trace;
     use test_log::test;
@@ -173,7 +222,7 @@ mod tests {
         res.unwrap()
     }
 
-    fn load_ods(path: &'static str) -> Context {
+    fn load_ods(path: &'static str) -> Sheet {
         let mut sheet = Sheet::default();
         let wb = spreadsheet_ods::read_ods(path).unwrap();
         let ods_sheet = wb.sheet(0);
@@ -185,7 +234,7 @@ mod tests {
             trace!("{}, {}: {:?}", x, y, cell);
             sheet.set(x as usize, y as usize, cell);
         });
-        Context { sheet }
+        sheet
     }
 
     #[dir_test(
@@ -193,14 +242,21 @@ mod tests {
         glob: "**/*.ods",
         loader: load_ods,
     )]
-    fn test_ods(fixture: Fixture<Context>) {
-        let ctx = fixture.content();
+    fn test_ods(fixture: Fixture<Sheet>) {
+        // FIXME: clone may not be necessary here, maybe construct context later
+        let mut ctx = Context {
+            sheet: fixture.content().clone(),
+            ..Default::default()
+        };
         for ((x, y), cell) in ctx.sheet.iter() {
+            ctx.current_loc = Some((x, y));
             trace!("{},{}: {:?}", x, y, cell);
             if cell.value.is_some() && cell.expr.is_some() {
                 let val = cell.value.clone().unwrap();
                 let expr = cell.expr.clone().unwrap();
-                let eval_val = eval(ctx, &expr);
+                // FIXME: is Scalar the right type for single cell evaluation? may depend on cell format
+                let eval_val = eval(&ctx, &expr).convert_to_scalar(&ctx);
+                trace!("{:?}", eval_val);
                 assert_eq!(val, eval_val);
             }
         }

@@ -8,8 +8,13 @@ pub trait ConvertToScalar {
 }
 
 impl ConvertToScalar for Value {
-    fn convert_to_scalar(&self, _ctx: &Context) -> Value {
-        todo!()
+    fn convert_to_scalar(&self, ctx: &Context) -> Value {
+        match self {
+            Value::Num(_) | Value::Bool(_) | Value::String(_) => self.clone(),
+            Value::Ref(r) => eval_ref(ctx, r),
+            Value::Err(_) => self.clone(),
+            _ => Value::Err(Error::Value),
+        }
     }
 }
 
@@ -20,7 +25,7 @@ pub trait ConvertToNumber {
 impl ConvertToNumber for Value {
     fn convert_to_number(&self, ctx: &Context) -> Value {
         match self {
-            Value::Num(n) => Value::Num(*n),
+            Value::Num(_) => self.clone(),
             Value::Bool(b) => {
                 if *b {
                     Value::Num(1f64)

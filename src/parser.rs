@@ -1,5 +1,5 @@
 use chumsky::prelude::*;
-use chumsky::Parser;
+pub use chumsky::Parser;
 use std::ops::Range;
 
 use crate::{
@@ -22,7 +22,12 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                 .try_map(|(col_chars, row_num), span| {
                     let row = row_num
                         .parse::<usize>()
-                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?;
+                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                        .checked_sub(1)
+                        .ok_or(Simple::custom(
+                            span.clone(),
+                            "row reference must be greater than zero",
+                        ))?;
                     let col = column_to_id(col_chars)
                         .map_err(|e| Simple::custom(span, format!("{}", e)))?;
                     Ok(Expr::Ref(Ref::CellRef(col, row)))
@@ -40,13 +45,23 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                 .then_ignore(just(":"))
                 .then(text::digits(10))
                 .try_map(|(a, b): (String, String), span: Span| {
-                    let span_b = span.clone();
+                    // TODO: refactor integer parsing into a function (DRY)
                     let int_a = a
                         .parse::<usize>()
-                        .map_err(|e| Simple::custom(span, format!("{}", e)))?;
+                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                        .checked_sub(1)
+                        .ok_or(Simple::custom(
+                            span.clone(),
+                            "row reference must be greater than zero",
+                        ))?;
                     let int_b = b
                         .parse::<usize>()
-                        .map_err(|e| Simple::custom(span_b, format!("{}", e)))?;
+                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                        .checked_sub(1)
+                        .ok_or(Simple::custom(
+                            span.clone(),
+                            "row reference must be greater than zero",
+                        ))?;
                     Ok(Expr::Ref(Ref::RowRange(int_a, int_b)))
                 });
             let cellrange = cellref.then_ignore(just(":")).then(cellref).map(|(a, b)| {
@@ -224,30 +239,30 @@ mod tests {
 
     #[test]
     fn simple_cellref() {
-        assert_eq!(parse("A1"), Expr::Ref(Ref::CellRef(1, 1)));
-        assert_eq!(parse("XY23"), Expr::Ref(Ref::CellRef(649, 23)));
+        assert_eq!(parse("A1"), Expr::Ref(Ref::CellRef(0, 0)));
+        assert_eq!(parse("XY23"), Expr::Ref(Ref::CellRef(648, 22)));
     }
 
     #[test]
     fn simple_columnrange() {
-        assert_eq!(parse("A:A"), Expr::Ref(Ref::ColumnRange(1, 1)));
-        assert_eq!(parse("H:H"), Expr::Ref(Ref::ColumnRange(8, 8)));
-        assert_eq!(parse("B:AB"), Expr::Ref(Ref::ColumnRange(2, 28)));
+        assert_eq!(parse("A:A"), Expr::Ref(Ref::ColumnRange(0, 0)));
+        assert_eq!(parse("H:H"), Expr::Ref(Ref::ColumnRange(7, 7)));
+        assert_eq!(parse("B:AB"), Expr::Ref(Ref::ColumnRange(1, 27)));
     }
 
     #[test]
     fn simple_rowrange() {
-        assert_eq!(parse("3:3"), Expr::Ref(Ref::RowRange(3, 3)));
-        assert_eq!(parse("1:5"), Expr::Ref(Ref::RowRange(1, 5)));
-        assert_eq!(parse("21:9"), Expr::Ref(Ref::RowRange(21, 9)));
+        assert_eq!(parse("3:3"), Expr::Ref(Ref::RowRange(2, 2)));
+        assert_eq!(parse("1:5"), Expr::Ref(Ref::RowRange(0, 4)));
+        assert_eq!(parse("21:9"), Expr::Ref(Ref::RowRange(20, 8)));
     }
 
     #[test]
     fn simple_cellrange() {
-        assert_eq!(parse("A1:Z99"), Expr::Ref(Ref::CellRange((1, 1), (26, 99))));
+        assert_eq!(parse("A1:Z99"), Expr::Ref(Ref::CellRange((0, 0), (25, 98))));
         assert_eq!(
             parse("AA23:BB42"),
-            Expr::Ref(Ref::CellRange((27, 23), (54, 42)))
+            Expr::Ref(Ref::CellRange((26, 22), (53, 41)))
         );
     }
 
