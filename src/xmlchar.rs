@@ -1,22 +1,26 @@
 // character checks based on xml char definiton: https://www.w3.org/TR/xml/#CharClasses
 
 pub trait XmlChar {
+    /// Checks if the value is an XML [Letter](https://www.w3.org/TR/xml/#NT-Letter) character.
     fn is_xml_letter(&self) -> bool;
+    /// Checks if the value is an XML [BaseChar](https://www.w3.org/TR/xml/#NT-BaseChar) character.
     fn is_xml_base_char(&self) -> bool;
-    fn is_xml_ideogrpahic(&self) -> bool;
+    /// Checks if the value is an XML [Ideographic](https://www.w3.org/TR/xml/#NT-Ideographic) character.
+    fn is_xml_ideographic(&self) -> bool;
+    /// Checks if the value is an XML [CombiningChar](https://www.w3.org/TR/xml/#NT-CombiningChar) character.
     fn is_xml_combining_char(&self) -> bool;
+    /// Checks if the value is an XML [Digit](https://www.w3.org/TR/xml/#NT-Digit) character.
     fn is_xml_digit(&self) -> bool;
+    /// Checks if the value is an XML [Extender](https://www.w3.org/TR/xml/#NT-Extender) character.
     fn is_xml_extender(&self) -> bool;
 }
 
 impl XmlChar for char {
-    /// Checks if the value is an XML [Letter](https://www.w3.org/TR/xml/#NT-Letter) character
     #[inline]
     fn is_xml_letter(&self) -> bool {
-        self.is_xml_base_char() || self.is_xml_ideogrpahic()
+        self.is_xml_base_char() || self.is_xml_ideographic()
     }
 
-    /// Checks if the value is an XML [BaseChar](https://www.w3.org/TR/xml/#NT-BaseChar) character
     #[inline]
     fn is_xml_base_char(&self) -> bool {
         matches!(*self,
@@ -225,9 +229,8 @@ impl XmlChar for char {
         )
     }
 
-    /// Checks if the value is an XML [Ideogrpahic](https://www.w3.org/TR/xml/#NT-Letter) character
     #[inline]
-    fn is_xml_ideogrpahic(&self) -> bool {
+    fn is_xml_ideographic(&self) -> bool {
         matches!(*self,
             '\u{04E00}'..='\u{09FA5}' |
             '\u{03007}' |
@@ -235,7 +238,6 @@ impl XmlChar for char {
         )
     }
 
-    /// Checks if the value is an XML [CombiningChar](https://www.w3.org/TR/xml/#NT-CombiningChar) character
     #[inline]
     fn is_xml_combining_char(&self) -> bool {
         matches!(*self,
@@ -337,7 +339,6 @@ impl XmlChar for char {
         )
     }
 
-    /// Checks if the value is an XML [Digit](https://www.w3.org/TR/xml/#NT-Digit) character
     #[inline]
     fn is_xml_digit(&self) -> bool {
         matches!(*self,
@@ -359,7 +360,6 @@ impl XmlChar for char {
         )
     }
 
-    /// Checks if the value is an XML [Extender](https://www.w3.org/TR/xml/#NT-Extender) character
     #[inline]
     fn is_xml_extender(&self) -> bool {
         matches!(*self,
