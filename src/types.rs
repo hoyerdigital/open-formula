@@ -63,7 +63,6 @@ pub enum Expr {
     Ref(Ref),
 }
 
-// FIXME: replace string with numbers?
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 pub enum Ref {
     CellRef(usize, usize),

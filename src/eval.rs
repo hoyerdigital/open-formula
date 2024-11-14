@@ -72,7 +72,7 @@ fn eval_to_num<F>(ctx: &Context, expr: &Expr, f: F) -> Value
 where
     F: Fn(f64) -> Value,
 {
-    let v = eval(ctx, expr).convert_to_number();
+    let v = eval(ctx, expr).convert_to_number(ctx);
     match v {
         Value::Num(n) => f(n),
         _ => Value::Err(Error::Value),
@@ -83,8 +83,8 @@ fn eval_to_num_2<F>(ctx: &Context, lhs: &Expr, rhs: &Expr, f: F) -> Value
 where
     F: Fn(f64, f64) -> Value,
 {
-    let vl = eval(ctx, lhs).convert_to_number();
-    let vr = eval(ctx, rhs).convert_to_number();
+    let vl = eval(ctx, lhs).convert_to_number(ctx);
+    let vr = eval(ctx, rhs).convert_to_number(ctx);
     if let (Value::Num(vl), Value::Num(vr)) = (vl, vr) {
         f(vl, vr)
     } else {
@@ -92,7 +92,7 @@ where
     }
 }
 
-fn eval_ref(ctx: &Context, r: &Ref) -> Value {
+pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
     match r {
         Ref::CellRef(x, y) => {
             // single cell reference is called a "criterion"
@@ -132,7 +132,7 @@ pub fn eval(ctx: &Context, expr: &Expr) -> Value {
         }),
         Expr::Pow(l, r) => eval_to_num_2(ctx, l, r, |l, r| Value::Num(l.powf(r))),
 
-        Expr::Ref(r) => eval_ref(ctx, r),
+        Expr::Ref(r) => Value::Ref(r.clone()),
         _ => Value::Err(Error::Unimplemented),
     };
     trace!("{:?} →  {:?}", expr, v);

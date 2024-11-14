@@ -1,21 +1,24 @@
-use crate::types::{Error, Value};
+use crate::{
+    eval::{eval_ref, Context},
+    types::{Error, Value},
+};
 
 pub trait ConvertToScalar {
-    fn convert_to_scalar(&self) -> Value;
+    fn convert_to_scalar(&self, ctx: &Context) -> Value;
 }
 
 impl ConvertToScalar for Value {
-    fn convert_to_scalar(&self) -> Value {
+    fn convert_to_scalar(&self, _ctx: &Context) -> Value {
         todo!()
     }
 }
 
 pub trait ConvertToNumber {
-    fn convert_to_number(&self) -> Value;
+    fn convert_to_number(&self, ctx: &Context) -> Value;
 }
 
 impl ConvertToNumber for Value {
-    fn convert_to_number(&self) -> Value {
+    fn convert_to_number(&self, ctx: &Context) -> Value {
         match self {
             Value::Num(n) => Value::Num(*n),
             Value::Bool(b) => {
@@ -26,7 +29,7 @@ impl ConvertToNumber for Value {
                 }
             }
             // TODO: Text to Number
-            // TODO: Reference to Number
+            Value::Ref(r) => eval_ref(ctx, r),
             _ => Value::Err(Error::Value),
         }
     }
