@@ -28,8 +28,9 @@ impl ConvertToNumber for Value {
                     Value::Num(0f64)
                 }
             }
+            Value::EmptyCell => Value::Num(0f64),
             // TODO: Text to Number
-            Value::Ref(r) => eval_ref(ctx, r),
+            Value::Ref(r) => eval_ref(ctx, r).convert_to_number(ctx),
             _ => Value::Err(Error::Value),
         }
     }

@@ -105,7 +105,7 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
                     Value::Err(Error::Ref)
                 }
             } else {
-                Value::Num(0f64)
+                Value::EmptyCell
             }
         }
         _ => Value::Err(Error::Ref),
