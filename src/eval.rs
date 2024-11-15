@@ -177,7 +177,6 @@ pub fn eval(ctx: &Context, expr: &Expr) -> Value {
             }
         }),
         Expr::Pow(l, r) => eval_to_num_2(ctx, l, r, |l, r| Value::Num(l.powf(r))),
-
         Expr::Ref(r) => Value::Ref(r.clone()),
         _ => Value::Err(Error::Unimplemented),
     };

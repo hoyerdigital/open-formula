@@ -11,192 +11,200 @@ use crate::{
 type Span = Range<usize>;
 
 pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
-    let expr =
-        recursive(|expr| {
-            let uppercase = filter::<_, _, Simple<char>>(char::is_ascii_uppercase)
-                .repeated()
-                .at_least(1)
-                .collect::<String>();
-            let cellref = uppercase
-                .then(text::digits(10))
-                .try_map(|(col_chars, row_num), span| {
-                    let row = row_num
-                        .parse::<usize>()
-                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
-                        .checked_sub(1)
-                        .ok_or(Simple::custom(
-                            span.clone(),
-                            "row reference must be greater than zero",
-                        ))?;
-                    let col = column_to_id(col_chars)
-                        .map_err(|e| Simple::custom(span, format!("{}", e)))?;
-                    Ok(Expr::Ref(Ref::CellRef(col, row)))
-                });
-            let columnrange = uppercase.then_ignore(just(":")).then(uppercase).try_map(
-                |(a_chars, b_chars), span| {
+    let expr = recursive(|expr| {
+        let uppercase = filter::<_, _, Simple<char>>(char::is_ascii_uppercase)
+            .repeated()
+            .at_least(1)
+            .collect::<String>();
+        let cellref = uppercase
+            .then(text::digits(10))
+            .try_map(|(col_chars, row_num), span| {
+                let row = row_num
+                    .parse::<usize>()
+                    .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                    .checked_sub(1)
+                    .ok_or(Simple::custom(
+                        span.clone(),
+                        "row reference must be greater than zero",
+                    ))?;
+                let col =
+                    column_to_id(col_chars).map_err(|e| Simple::custom(span, format!("{}", e)))?;
+                Ok(Expr::Ref(Ref::CellRef(col, row)))
+            });
+        let columnrange =
+            uppercase
+                .then_ignore(just(":"))
+                .then(uppercase)
+                .try_map(|(a_chars, b_chars), span| {
                     let a = column_to_id(a_chars)
                         .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?;
                     let b = column_to_id(b_chars)
                         .map_err(|e| Simple::custom(span, format!("{}", e)))?;
                     Ok(Expr::Ref(Ref::ColumnRange(a, b)))
-                },
-            );
-            let rowrange = text::digits(10)
-                .then_ignore(just(":"))
-                .then(text::digits(10))
-                .try_map(|(a, b): (String, String), span: Span| {
-                    // TODO: refactor integer parsing into a function (DRY)
-                    let int_a = a
-                        .parse::<usize>()
-                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
-                        .checked_sub(1)
-                        .ok_or(Simple::custom(
-                            span.clone(),
-                            "row reference must be greater than zero",
-                        ))?;
-                    let int_b = b
-                        .parse::<usize>()
-                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
-                        .checked_sub(1)
-                        .ok_or(Simple::custom(
-                            span.clone(),
-                            "row reference must be greater than zero",
-                        ))?;
-                    Ok(Expr::Ref(Ref::RowRange(int_a, int_b)))
                 });
-            let cellrange = cellref.then_ignore(just(":")).then(cellref).map(|(a, b)| {
-                // FIXME: .as_cell_ref returns (&a0, &a1), which is not (a0, a1), can this be converted better?
-                let (a0, a1) = a.as_ref().unwrap().as_cell_ref().unwrap();
-                let (b0, b1) = b.as_ref().unwrap().as_cell_ref().unwrap();
-                Expr::Ref(Ref::CellRange((*a0, *a1), (*b0, *b1)))
+        let rowrange = text::digits(10)
+            .then_ignore(just(":"))
+            .then(text::digits(10))
+            .try_map(|(a, b): (String, String), span: Span| {
+                // TODO: refactor integer parsing into a function (DRY)
+                let int_a = a
+                    .parse::<usize>()
+                    .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                    .checked_sub(1)
+                    .ok_or(Simple::custom(
+                        span.clone(),
+                        "row reference must be greater than zero",
+                    ))?;
+                let int_b = b
+                    .parse::<usize>()
+                    .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                    .checked_sub(1)
+                    .ok_or(Simple::custom(
+                        span.clone(),
+                        "row reference must be greater than zero",
+                    ))?;
+                Ok(Expr::Ref(Ref::RowRange(int_a, int_b)))
             });
-            // custom ident that differs from chumsky::text::ident, because a lot more
-            // characters are allowed
-            let ident = filter::<_, _, Simple<char>>(|c: &char| c.is_xml_letter())
-                .map(Some)
-                .chain::<char, Vec<char>, _>(
-                    filter::<_, _, Simple<char>>(|c: &char| {
-                        c.is_xml_letter()
-                            || c.is_xml_digit()
-                            || *c == '_'
-                            || *c == '.'
-                            || c.is_xml_combining_char()
-                    })
-                    .repeated(),
-                )
-                .collect()
-                .padded();
-            let num = text::int(10)
-                // TODO: make decimal point character configurable
-                .then(just('.').ignore_then(text::digits(10)).or_not())
-                .map(|(a, o)| if let Some(b) = o { a + "." + &b } else { a })
-                .from_str()
-                .unwrapped()
-                .map(Expr::Num);
-            let str_ = just('"')
-                .ignore_then(none_of('"').repeated())
-                .then_ignore(just('"'))
-                .collect::<String>()
-                .map(Expr::String);
-            let call = ident
-                .then(
-                    expr.clone()
-                        .separated_by(just(';'))
-                        .allow_trailing()
-                        .collect::<Vec<_>>()
-                        .delimited_by(just('('), just(')')),
-                )
-                .map(|(f, args)| Expr::Func(f, args));
-            let bool = choice::<_, Simple<char>>((
-                text::keyword("TRUE").to(Expr::Bool(true)),
-                text::keyword("FALSE").to(Expr::Bool(false)),
-            ))
+        let cellrange = cellref.then_ignore(just(":")).then(cellref).map(|(a, b)| {
+            // FIXME: .as_cell_ref returns (&a0, &a1), which is not (a0, a1), can this be converted better?
+            let (a0, a1) = a.as_ref().unwrap().as_cell_ref().unwrap();
+            let (b0, b1) = b.as_ref().unwrap().as_cell_ref().unwrap();
+            Expr::Ref(Ref::CellRange((*a0, *a1), (*b0, *b1)))
+        });
+        // custom ident that differs from chumsky::text::ident, because a lot more
+        // characters are allowed
+        let ident = filter::<_, _, Simple<char>>(|c: &char| c.is_xml_letter())
+            .map(Some)
+            .chain::<char, Vec<char>, _>(
+                filter::<_, _, Simple<char>>(|c: &char| {
+                    c.is_xml_letter()
+                        || c.is_xml_digit()
+                        || *c == '_'
+                        || *c == '.'
+                        || c.is_xml_combining_char()
+                })
+                .repeated(),
+            )
+            .collect()
+            .padded();
+        let num = text::int(10)
+            // TODO: make decimal point character configurable
+            .then(just('.').ignore_then(text::digits(10)).or_not())
+            .map(|(a, o)| if let Some(b) = o { a + "." + &b } else { a })
+            .from_str()
+            .unwrapped()
+            .map(Expr::Num);
+        let str_ = just('"')
+            .ignore_then(none_of('"').repeated())
+            .then_ignore(just('"'))
+            .collect::<String>()
+            .map(Expr::String);
+        let call = ident
+            .then(
+                expr.clone()
+                    .separated_by(just(';'))
+                    .allow_trailing()
+                    .collect::<Vec<_>>()
+                    .delimited_by(just('('), just(')')),
+            )
+            .map(|(f, args)| Expr::Func(f, args));
+        let bool = choice::<_, Simple<char>>((
+            text::keyword("TRUE").to(Expr::Bool(true)),
+            text::keyword("FALSE").to(Expr::Bool(false)),
+        ))
+        .padded();
+
+        // FIXME: check for proper order of "or"-calls
+        let atom = rowrange
+            .or(expr.delimited_by(just('('), just(')')))
+            .or(num)
+            .or(bool)
+            .or(str_)
+            .or(columnrange)
+            .or(cellrange)
+            .or(cellref)
+            .or(call)
             .padded();
 
-            // FIXME: check for proper order of "or"-calls
-            let atom = rowrange
-                .or(expr.delimited_by(just('('), just(')')))
-                .or(num)
-                .or(bool)
-                .or(str_)
-                .or(columnrange)
-                .or(cellrange)
-                .or(cellref)
-                .or(call)
-                .padded();
+        let op = |c| just(c).padded();
 
-            let op = |c| just(c).padded();
+        let unary = op('-')
+            .or(op('+'))
+            .repeated()
+            .then(atom.clone())
+            .foldr(|op, rhs| match op {
+                '-' => Expr::Neg(Box::new(rhs)),
+                // per definition the prefix operator "does nothing",
+                // especially it does not convert to number, so we
+                // are just ignoring it for now
+                '+' => rhs,
+                _ => unreachable!(),
+            });
 
-            // TODO: add unary "+" prefix
-            let unary = op('-')
-                .repeated()
-                .then(atom.clone())
-                .foldr(|_op, rhs| Expr::Neg(Box::new(rhs)));
+        let unary_suffix = unary
+            .clone()
+            .then(op('%').repeated())
+            .foldl(|lhs, _op| Expr::Perc(Box::new(lhs)));
 
-            let unary_suffix = unary
-                .clone()
-                .then(op('%').repeated())
-                .foldl(|lhs, _op| Expr::Perc(Box::new(lhs)));
+        let pow = unary_suffix
+            .clone()
+            .then(
+                op('^')
+                    .to(Expr::Pow as fn(_, _) -> _)
+                    .then(unary)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-            let pow = unary_suffix
-                .clone()
-                .then(
-                    op('^')
-                        .to(Expr::Pow as fn(_, _) -> _)
-                        .then(unary)
-                        .repeated(),
-                )
-                .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let product = pow
+            .clone()
+            .then(
+                op('*')
+                    .to(Expr::Mul as fn(_, _) -> _)
+                    .or(op('/').to(Expr::Div as fn(_, _) -> _))
+                    .then(pow)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-            let product = pow
-                .clone()
-                .then(
-                    op('*')
-                        .to(Expr::Mul as fn(_, _) -> _)
-                        .or(op('/').to(Expr::Div as fn(_, _) -> _))
-                        .then(pow)
-                        .repeated(),
-                )
-                .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let sum = product
+            .clone()
+            .then(
+                op('+')
+                    .to(Expr::Add as fn(_, _) -> _)
+                    .or(op('-').to(Expr::Sub as fn(_, _) -> _))
+                    .then(product)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-            let sum = product
-                .clone()
-                .then(
-                    op('+')
-                        .to(Expr::Add as fn(_, _) -> _)
-                        .or(op('-').to(Expr::Sub as fn(_, _) -> _))
-                        .then(product)
-                        .repeated(),
-                )
-                .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let conc = sum
+            .clone()
+            .then(
+                op('&')
+                    .to(Expr::Concat as fn(_, _) -> _)
+                    .then(sum)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
 
-            let conc = sum
-                .clone()
-                .then(
-                    op('&')
-                        .to(Expr::Concat as fn(_, _) -> _)
-                        .then(sum)
-                        .repeated(),
-                )
-                .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let comp = choice::<_, Simple<char>>((
+            just("<>").to(Comp::NotEqual),
+            just(">=").to(Comp::GreaterEqual),
+            just("<=").to(Comp::LowerEqual),
+            just("=").to(Comp::Equal),
+            just(">").to(Comp::Greater),
+            just("<").to(Comp::Lower),
+        ));
 
-            let comp = choice::<_, Simple<char>>((
-                just("<>").to(Comp::NotEqual),
-                just(">=").to(Comp::GreaterEqual),
-                just("<=").to(Comp::LowerEqual),
-                just("=").to(Comp::Equal),
-                just(">").to(Comp::Greater),
-                just("<").to(Comp::Lower),
-            ));
-
-            conc.clone()
-                .then(
-                    comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
-                        .then(conc)
-                        .repeated(),
-                )
-                .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)))
-        });
+        conc.clone()
+            .then(
+                comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
+                    .then(conc)
+                    .repeated(),
+            )
+            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)))
+    });
 
     expr.then_ignore(end())
 }
@@ -307,6 +315,8 @@ mod tests {
         parse("-3 * -1");
         parse("2*20%");
         parse("\"A\"&TRUE");
+        parse("+5");
+        parse("+\"A\"");
     }
 
     #[test]
@@ -319,6 +329,8 @@ mod tests {
         parse("--(3)");
         parse("2*-20%%%");
         parse("\"A\" &\"B\"");
+        parse("++4.0");
+        parse("+-+\"123\"");
     }
 
     #[test]
