@@ -1,7 +1,10 @@
+#[cfg(feature = "small")]
 pub mod conversion;
+#[cfg(feature = "small")]
 pub mod eval;
 pub mod helpers;
 pub mod parser;
+#[cfg(feature = "sql")]
 pub mod sql;
 pub mod types;
 pub mod xmlchar;

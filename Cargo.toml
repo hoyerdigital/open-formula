@@ -3,6 +3,13 @@ name = "open-formula"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["large", "sql"]
+small = []
+medium = ["small"]
+large = ["medium"]
+sql = ["small"]
+
 [dependencies]
 ahash = "0.8.11"
 chumsky = "0.9.3"
