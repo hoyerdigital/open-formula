@@ -12,11 +12,32 @@ pub struct Cell {
     pub expr: Option<Expr>,
 }
 
+type EvalFn = dyn Fn(&[Value], &Context) -> Result<Value, Error>;
+
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
-#[derive(Debug, Default, Clone)]
 pub struct Context {
     sheet: Sheet,
     current_loc: Option<(usize, usize)>,
+    functions: AHashMap<String, Box<EvalFn>>,
+}
+
+impl Default for Context {
+    fn default() -> Self {
+        let mut ctx = Self {
+            sheet: Sheet::default(),
+            current_loc: None,
+            functions: AHashMap::default(),
+        };
+        ctx.add_small_functions();
+        ctx
+    }
+}
+
+impl Context {
+    fn add_small_functions(&mut self) {
+        self.functions
+            .insert("ABS".into(), Box::new(crate::functions::abs));
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -158,6 +179,21 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
     }
 }
 
+pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Value {
+    if let Some(f) = ctx.functions.get(fname) {
+        // TODO: this will always evaluate each argument
+        // we may need to pass Vec<Expr> to the functions, to let them decide
+        // e.g. IF does not need to evaluate every argument
+        let args: Vec<Value> = args.iter().map(|e| eval(ctx, e)).collect();
+        match f(&args, ctx) {
+            Ok(v) => v,
+            Err(e) => Value::Err(e),
+        }
+    } else {
+        Value::Err(Error::Name)
+    }
+}
+
 pub fn eval(ctx: &Context, expr: &Expr) -> Value {
     trace!("{:?}", expr);
     let v = match expr {
@@ -178,6 +214,7 @@ pub fn eval(ctx: &Context, expr: &Expr) -> Value {
         }),
         Expr::Pow(l, r) => eval_to_num_2(ctx, l, r, |l, r| Value::Num(l.powf(r))),
         Expr::Ref(r) => Value::Ref(r.clone()),
+        Expr::Func(fname, args) => eval_fn(ctx, fname, args),
         _ => Value::Err(Error::Unimplemented),
     };
     trace!("{:?} → {:?}", expr, v);

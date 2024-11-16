@@ -2,6 +2,7 @@
 pub mod conversion;
 #[cfg(feature = "small")]
 pub mod eval;
+pub mod functions;
 pub mod helpers;
 pub mod parser;
 #[cfg(feature = "sql")]

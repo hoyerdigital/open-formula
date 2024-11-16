@@ -16,6 +16,7 @@ pub enum Error {
     GettingData = 8,
     // Custom
     Unimplemented = 9,
+    Args = 10,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,6 +27,18 @@ pub enum Value {
     Err(Error),
     EmptyCell,
     Ref(Ref),
+}
+
+impl Value {
+    /// Convert value into result type.
+    ///
+    /// If it is Value::Err this will return Err, otherwise Ok.
+    pub fn into_result(self) -> Result<Value, Error> {
+        match self {
+            Value::Err(e) => Err(e),
+            _ => Ok(self),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

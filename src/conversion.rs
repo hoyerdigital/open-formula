@@ -2,6 +2,7 @@ use crate::{
     eval::{eval_ref, Context},
     types::{Error, Value},
 };
+use std::str::FromStr;
 
 pub trait ConvertToScalar {
     fn convert_to_scalar(&self, ctx: &Context) -> Value;
@@ -34,10 +35,9 @@ impl ConvertToNumber for Value {
                 }
             }
             Value::EmptyCell => Value::Num(0f64),
-            // TODO: Text to Number
+            Value::String(s) => f64::from_str(s).map_or(Value::Err(Error::Value), Value::Num),
             Value::Ref(r) => eval_ref(ctx, r).convert_to_number(ctx),
             Value::Err(_) => self.clone(),
-            _ => Value::Err(Error::Value),
         }
     }
 }
