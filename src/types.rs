@@ -1,13 +1,6 @@
 use enum_as_inner::EnumAsInner;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-pub enum Mode {
-    Default,
-    OpenDocument,
-    GoogleSheets,
-    Excel,
-}
-
 #[derive(Debug, Clone, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum Error {
