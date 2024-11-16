@@ -35,8 +35,20 @@ impl Default for Context {
 
 impl Context {
     fn add_small_functions(&mut self) {
-        self.functions
-            .insert("ABS".into(), Box::new(crate::functions::abs));
+        use crate::functions::*;
+        self.functions.insert("ABS".into(), Box::new(abs));
+        self.functions.insert("ACOS".into(), Box::new(acos));
+        self.functions.insert("ASIN".into(), Box::new(asin));
+        self.functions.insert("ATAN".into(), Box::new(atan));
+        self.functions.insert("COS".into(), Box::new(cos));
+        self.functions.insert("DEGREES".into(), Box::new(degrees));
+        self.functions.insert("EXP".into(), Box::new(exp));
+        self.functions.insert("LN".into(), Box::new(ln));
+        self.functions.insert("LOG10".into(), Box::new(log10));
+        self.functions.insert("RADIANS".into(), Box::new(radians));
+        self.functions.insert("SIN".into(), Box::new(sin));
+        self.functions.insert("SQRT".into(), Box::new(sqrt));
+        self.functions.insert("TAN".into(), Box::new(tan));
     }
 }
 
