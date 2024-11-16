@@ -927,6 +927,7 @@ dependencies = [
  "log",
  "num_enum",
  "regex",
+ "ryu",
  "spreadsheet-ods",
  "test-log",
 ]
