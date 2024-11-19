@@ -16,9 +16,9 @@ type EvalFn = dyn Fn(&[Value], &Context) -> Result<Value, Error>;
 
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
 pub struct Context {
-    sheet: Sheet,
-    current_loc: Option<(usize, usize)>,
-    functions: AHashMap<String, Box<EvalFn>>,
+    pub sheet: Sheet,
+    pub current_loc: Option<(usize, usize)>,
+    pub functions: AHashMap<String, Box<EvalFn>>,
 }
 
 impl Default for Context {
