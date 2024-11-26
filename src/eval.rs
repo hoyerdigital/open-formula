@@ -12,7 +12,7 @@ pub struct Cell {
     pub expr: Option<Expr>,
 }
 
-type EvalFn = dyn Fn(&[Value], &Context) -> Result<Value, Error>;
+type EvalFn = dyn Fn(&[Expr], &Context) -> Result<Value, Error>;
 
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
 pub struct Context {
@@ -196,7 +196,6 @@ pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Value {
         // TODO: this will always evaluate each argument
         // we may need to pass Vec<Expr> to the functions, to let them decide
         // e.g. IF does not need to evaluate every argument
-        let args: Vec<Value> = args.iter().map(|e| eval(ctx, e)).collect();
         match f(&args, ctx) {
             Ok(v) => v,
             Err(e) => Value::Err(e),
