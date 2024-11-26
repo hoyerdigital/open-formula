@@ -1,7 +1,7 @@
 use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use open_formula::eval::{eval, Cell, Context};
 use open_formula::parser::{parser, Parser};
-use open_formula::types::{Expr, Ref, Value};
+use open_formula::types::{Error, Expr, Ref, Value};
 use std::hint::black_box;
 
 pub fn setup_context(current: &str, expr: &str) -> (Context, Expr) {
@@ -16,6 +16,14 @@ pub fn setup_context(current: &str, expr: &str) -> (Context, Expr) {
             current_loc: Some((x, y)),
             ..Default::default()
         };
+
+        // add at least one dynamic function, so that dynamic evaluation isn't
+        // optimized away
+        ctx.functions.insert(
+            "UNIMPLEMENTED".into(),
+            Box::new(|_, _| Err(Error::Unimplemented)),
+        );
+
         ctx.sheet.set(
             0,
             0,
@@ -31,9 +39,9 @@ pub fn setup_context(current: &str, expr: &str) -> (Context, Expr) {
 }
 
 // TODO: add more complicated benchmark cases
-#[library_benchmark]
-#[bench::simple_ref(args = ("B1", "A1"), setup = setup_context)]
-#[bench::simple_trig(args = ("B1", "SIN(ABS(A1))"), setup = setup_context)]
+#[library_benchmark(setup = setup_context)]
+#[bench::simple_ref(args = ("B1", "A1"))]
+#[bench::simple_trig(args = ("B1", "SIN(ABS(A1))"))]
 fn bench_eval(args: (Context, Expr)) -> Value {
     let (ctx, expr) = args;
     black_box(eval(&ctx, &expr))

@@ -34,9 +34,24 @@ impl Value {
     ///
     /// If it is Value::Err this will return Err, otherwise Ok.
     pub fn into_result(self) -> Result<Value, Error> {
-        match self {
+        self.into()
+    }
+}
+
+impl From<Value> for Result<Value, Error> {
+    fn from(value: Value) -> Self {
+        match value {
             Value::Err(e) => Err(e),
-            _ => Ok(self),
+            _ => Ok(value),
+        }
+    }
+}
+
+impl From<Result<Value, Error>> for Value {
+    fn from(value: Result<Value, Error>) -> Self {
+        match value {
+            Ok(val) => val,
+            Err(e) => Value::Err(e),
         }
     }
 }

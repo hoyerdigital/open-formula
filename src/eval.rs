@@ -15,41 +15,11 @@ pub struct Cell {
 type EvalFn = dyn Fn(&[Expr], &Context) -> Result<Value, Error>;
 
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
+#[derive(Default)]
 pub struct Context {
     pub sheet: Sheet,
     pub current_loc: Option<(usize, usize)>,
     pub functions: AHashMap<String, Box<EvalFn>>,
-}
-
-impl Default for Context {
-    fn default() -> Self {
-        let mut ctx = Self {
-            sheet: Sheet::default(),
-            current_loc: None,
-            functions: AHashMap::default(),
-        };
-        ctx.add_small_functions();
-        ctx
-    }
-}
-
-impl Context {
-    fn add_small_functions(&mut self) {
-        use crate::functions::*;
-        self.functions.insert("ABS".into(), Box::new(abs));
-        self.functions.insert("ACOS".into(), Box::new(acos));
-        self.functions.insert("ASIN".into(), Box::new(asin));
-        self.functions.insert("ATAN".into(), Box::new(atan));
-        self.functions.insert("COS".into(), Box::new(cos));
-        self.functions.insert("DEGREES".into(), Box::new(degrees));
-        self.functions.insert("EXP".into(), Box::new(exp));
-        self.functions.insert("LN".into(), Box::new(ln));
-        self.functions.insert("LOG10".into(), Box::new(log10));
-        self.functions.insert("RADIANS".into(), Box::new(radians));
-        self.functions.insert("SIN".into(), Box::new(sin));
-        self.functions.insert("SQRT".into(), Box::new(sqrt));
-        self.functions.insert("TAN".into(), Box::new(tan));
-    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -192,17 +162,32 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
 }
 
 pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Value {
-    if let Some(f) = ctx.functions.get(fname) {
-        // TODO: this will always evaluate each argument
-        // we may need to pass Vec<Expr> to the functions, to let them decide
-        // e.g. IF does not need to evaluate every argument
-        match f(&args, ctx) {
-            Ok(v) => v,
-            Err(e) => Value::Err(e),
+    use crate::functions::*;
+    // first check for functions defined at compile time
+    let val = match fname {
+        "ABS" => abs(args, ctx),
+        "ACOS" => acos(args, ctx),
+        "ASIN" => asin(args, ctx),
+        "ATAN" => atan(args, ctx),
+        "COS" => cos(args, ctx),
+        "DEGREES" => degrees(args, ctx),
+        "EXP" => exp(args, ctx),
+        "LN" => ln(args, ctx),
+        "LOG10" => log10(args, ctx),
+        "RADIANS" => radians(args, ctx),
+        "SIN" => sin(args, ctx),
+        "SQRT" => sqrt(args, ctx),
+        "TAN" => tan(args, ctx),
+        _ => {
+            // check for functions defined at runtime
+            if let Some(f) = ctx.functions.get(fname) {
+                f(args, ctx)
+            } else {
+                Err(Error::Name)
+            }
         }
-    } else {
-        Value::Err(Error::Name)
-    }
+    };
+    val.into()
 }
 
 pub fn eval(ctx: &Context, expr: &Expr) -> Value {
