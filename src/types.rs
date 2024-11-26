@@ -24,37 +24,11 @@ pub enum Value {
     Num(f64),
     String(String),
     Bool(bool),
-    Err(Error),
     EmptyCell,
     Ref(Ref),
 }
 
-impl Value {
-    /// Convert value into result type.
-    ///
-    /// If it is Value::Err this will return Err, otherwise Ok.
-    pub fn into_result(self) -> Result<Value, Error> {
-        self.into()
-    }
-}
-
-impl From<Value> for Result<Value, Error> {
-    fn from(value: Value) -> Self {
-        match value {
-            Value::Err(e) => Err(e),
-            _ => Ok(value),
-        }
-    }
-}
-
-impl From<Result<Value, Error>> for Value {
-    fn from(value: Result<Value, Error>) -> Self {
-        match value {
-            Ok(val) => val,
-            Err(e) => Value::Err(e),
-        }
-    }
-}
+pub type Result = std::result::Result<Value, Error>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Comp {

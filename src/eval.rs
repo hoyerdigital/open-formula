@@ -3,7 +3,7 @@ use log::trace;
 
 use crate::{
     conversion::ConvertToNumber,
-    types::{Error, Expr, Ref, Value},
+    types::{Error, Expr, Ref, Value, Result},
 };
 
 #[derive(Debug, Clone)]
@@ -12,7 +12,7 @@ pub struct Cell {
     pub expr: Option<Expr>,
 }
 
-type EvalFn = dyn Fn(&[Expr], &Context) -> Result<Value, Error>;
+type EvalFn = dyn Fn(&[Expr], &Context) -> Result;
 
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
 #[derive(Default)]
@@ -63,71 +63,71 @@ impl Sheet {
     }
 }
 
-fn eval_to_num<F>(ctx: &Context, expr: &Expr, f: F) -> Value
+fn eval_to_num<F>(ctx: &Context, expr: &Expr, f: F) -> Result
 where
-    F: Fn(f64) -> Value,
+    F: Fn(f64) -> std::result::Result<f64, Error>
 {
-    let v = eval(ctx, expr).convert_to_number(ctx);
+    let v = eval(ctx, expr).convert_to_number(ctx)?;
     match v {
-        Value::Num(n) => f(n),
-        _ => Value::Err(Error::Value),
+        Value::Num(n) => f(n).map(|x| Value::Num(x)),
+        _ => Err(Error::Value),
     }
 }
 
-fn eval_to_num_2<F>(ctx: &Context, lhs: &Expr, rhs: &Expr, f: F) -> Value
+fn eval_to_num_2<F>(ctx: &Context, lhs: &Expr, rhs: &Expr, f: F) -> Result
 where
-    F: Fn(f64, f64) -> Value,
+    F: Fn(f64, f64) -> std::result::Result<f64, Error>,
 {
-    let vl = eval(ctx, lhs).convert_to_number(ctx);
-    let vr = eval(ctx, rhs).convert_to_number(ctx);
+    let vl = eval(ctx, lhs).convert_to_number(ctx)?;
+    let vr = eval(ctx, rhs).convert_to_number(ctx)?;
     if let (Value::Num(vl), Value::Num(vr)) = (vl, vr) {
-        f(vl, vr)
+        f(vl, vr).map(|x| Value::Num(x))
     } else {
-        Value::Err(Error::Value)
+        Err(Error::Value)
     }
 }
 
 /// Evaluate a reference to a single cell value.
 ///
 /// Apply implied intersection if multiple cells are referenced.
-pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
+pub fn eval_ref(ctx: &Context, r: &Ref) -> Result {
     match r {
         // evaluate single cell reference
         Ref::CellRef(x, y) => {
             let cell = ctx.sheet.get(*x, *y);
             if let Some(cell) = cell {
                 if let Some(val) = cell.value.clone() {
-                    val
+                    Ok(val)
                 } else {
-                    Value::Err(Error::Ref)
+                    Err(Error::Ref)
                 }
             } else {
-                Value::EmptyCell
+                Ok(Value::EmptyCell)
             }
         }
         // implied intersection
         Ref::ColumnRange(x1, x2) => {
             if let Some((x, y)) = ctx.current_loc {
                 if *x1 != *x2 || x == *x1 {
-                    Value::Err(Error::Value)
+                    Err(Error::Value)
                 } else {
                     let r = Ref::CellRef(*x1, y);
                     eval_ref(ctx, &r)
                 }
             } else {
-                Value::Err(Error::Ref)
+                Err(Error::Ref)
             }
         }
         Ref::RowRange(y1, y2) => {
             if let Some((x, y)) = ctx.current_loc {
                 if *y1 != *y2 || y == *y1 {
-                    Value::Err(Error::Value)
+                    Err(Error::Value)
                 } else {
                     let r = Ref::CellRef(x, *y1);
                     eval_ref(ctx, &r)
                 }
             } else {
-                Value::Err(Error::Ref)
+                Err(Error::Ref)
             }
         }
         Ref::CellRange((x1, y1), (x2, y2)) => {
@@ -137,7 +137,7 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
                 if x >= *x1 && x <= *x2 {
                     // columns overlap
                     if *y1 != *y2 || y == *y1 {
-                        Value::Err(Error::Value)
+                        Err(Error::Value)
                     } else {
                         let r = Ref::CellRef(x, *y1);
                         eval_ref(ctx, &r)
@@ -145,26 +145,26 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Value {
                 } else if y >= *y1 && y <= *y2 {
                     // rows overlap
                     if *x1 != *x2 || x == *x1 {
-                        Value::Err(Error::Value)
+                        Err(Error::Value)
                     } else {
                         let r = Ref::CellRef(*x1, y);
                         eval_ref(ctx, &r)
                     }
                 } else {
                     // no overlap, intersection is empty
-                    Value::Err(Error::Value)
+                    Err(Error::Value)
                 }
             } else {
-                Value::Err(Error::Ref)
+                Err(Error::Ref)
             }
         }
     }
 }
 
-pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Value {
+pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Result {
     use crate::functions::*;
-    // first check for functions defined at compile time
-    let val = match fname {
+    match fname {
+        // first check for functions defined at compile time
         "ABS" => abs(args, ctx),
         "ACOS" => acos(args, ctx),
         "ASIN" => asin(args, ctx),
@@ -178,40 +178,39 @@ pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Value {
         "SIN" => sin(args, ctx),
         "SQRT" => sqrt(args, ctx),
         "TAN" => tan(args, ctx),
+        // check for functions defined at runtime
         _ => {
-            // check for functions defined at runtime
             if let Some(f) = ctx.functions.get(fname) {
                 f(args, ctx)
             } else {
                 Err(Error::Name)
             }
         }
-    };
-    val.into()
+    }
 }
 
-pub fn eval(ctx: &Context, expr: &Expr) -> Value {
+pub fn eval(ctx: &Context, expr: &Expr) -> Result {
     trace!("{:?}", expr);
     let v = match expr {
-        Expr::Num(n) => Value::Num(*n),
-        Expr::Bool(b) => Value::Bool(*b),
-        Expr::String(s) => Value::String(s.clone()),
-        Expr::Perc(e) => eval_to_num(ctx, e, |n| Value::Num(n / 100.0)),
-        Expr::Neg(e) => eval_to_num(ctx, e, |n| Value::Num(-n)),
-        Expr::Add(l, r) => eval_to_num_2(ctx, l, r, |l, r| Value::Num(l + r)),
-        Expr::Sub(l, r) => eval_to_num_2(ctx, l, r, |l, r| Value::Num(l - r)),
-        Expr::Mul(l, r) => eval_to_num_2(ctx, l, r, |l, r| Value::Num(l * r)),
+        Expr::Num(n) => Ok(Value::Num(*n)),
+        Expr::Bool(b) => Ok(Value::Bool(*b)),
+        Expr::String(s) => Ok(Value::String(s.clone())),
+        Expr::Perc(e) => eval_to_num(ctx, e, |n| Ok(n / 100.0)),
+        Expr::Neg(e) => eval_to_num(ctx, e, |n| Ok(-n)),
+        Expr::Add(l, r) => eval_to_num_2(ctx, l, r, |l, r| Ok(l + r)),
+        Expr::Sub(l, r) => eval_to_num_2(ctx, l, r, |l, r| Ok(l - r)),
+        Expr::Mul(l, r) => eval_to_num_2(ctx, l, r, |l, r| Ok(l * r)),
         Expr::Div(l, r) => eval_to_num_2(ctx, l, r, |l, r| {
             if r == 0.0 {
-                Value::Err(Error::Div0)
+                Err(Error::Div0)
             } else {
-                Value::Num(l / r)
+                Ok(l / r)
             }
         }),
-        Expr::Pow(l, r) => eval_to_num_2(ctx, l, r, |l, r| Value::Num(l.powf(r))),
-        Expr::Ref(r) => Value::Ref(r.clone()),
+        Expr::Pow(l, r) => eval_to_num_2(ctx, l, r, |l, r| Ok(l.powf(r))),
+        Expr::Ref(r) => Ok(Value::Ref(r.clone())),
         Expr::Func(fname, args) => eval_fn(ctx, fname, args),
-        _ => Value::Err(Error::Unimplemented),
+        _ => Err(Error::Unimplemented),
     };
     trace!("{:?} → {:?}", expr, v);
     v
@@ -289,7 +288,7 @@ mod tests {
                 // FIXME: is Scalar the right type for single cell evaluation? may depend on cell format
                 let eval_val = eval(&ctx, &expr).convert_to_scalar(&ctx);
                 trace!("{:?}", eval_val);
-                assert_eq!(val, eval_val);
+                assert_eq!(Ok(val), eval_val);
             }
         }
     }

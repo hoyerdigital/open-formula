@@ -1,88 +1,88 @@
 use crate::{
     eval::{eval_ref, Context},
-    types::{Error, Value},
+    types::{Error, Result, Value},
 };
 use std::str::FromStr;
 
 pub trait ConvertToScalar {
-    fn convert_to_scalar(&self, ctx: &Context) -> Value;
+    fn convert_to_scalar(&self, ctx: &Context) -> Result;
 }
 
-impl ConvertToScalar for Value {
-    fn convert_to_scalar(&self, ctx: &Context) -> Value {
+impl ConvertToScalar for Result {
+    fn convert_to_scalar(&self, ctx: &Context) -> Result {
         match self {
-            Value::Num(_) | Value::Bool(_) | Value::String(_) => self.clone(),
-            Value::Ref(r) => eval_ref(ctx, r),
-            Value::Err(_) => self.clone(),
-            _ => Value::Err(Error::Value),
+            Ok(Value::Num(_)) | Ok(Value::Bool(_)) | Ok(Value::String(_)) => self.clone(),
+            Ok(Value::Ref(r)) => eval_ref(ctx, r),
+            Err(_) => self.clone(),
+            _ => Err(Error::Value),
         }
     }
 }
 
 pub trait ConvertToNumber {
-    fn convert_to_number(&self, ctx: &Context) -> Value;
+    fn convert_to_number(&self, ctx: &Context) -> Result;
 }
 
-impl ConvertToNumber for Value {
-    fn convert_to_number(&self, ctx: &Context) -> Value {
+impl ConvertToNumber for Result {
+    fn convert_to_number(&self, ctx: &Context) -> Result {
         match self {
-            Value::Num(_) => self.clone(),
-            Value::Bool(b) => {
+            Ok(Value::Num(_)) => self.clone(),
+            Ok(Value::Bool(b)) => {
                 if *b {
-                    Value::Num(1f64)
+                    Ok(Value::Num(1f64))
                 } else {
-                    Value::Num(0f64)
+                    Ok(Value::Num(0f64))
                 }
             }
-            Value::EmptyCell => Value::Num(0f64),
-            Value::String(s) => f64::from_str(s).map_or(Value::Err(Error::Value), Value::Num),
-            Value::Ref(r) => eval_ref(ctx, r).convert_to_number(ctx),
-            Value::Err(_) => self.clone(),
+            Ok(Value::EmptyCell) => Ok(Value::Num(0f64)),
+            Ok(Value::String(s)) => f64::from_str(s).map(Value::Num).map_err(|_| Error::Value),
+            Ok(Value::Ref(r)) => eval_ref(ctx, r).convert_to_number(ctx),
+            Err(_) => self.clone(),
         }
     }
 }
 
 pub trait ConvertToLogical {
-    fn convert_to_logical(&self, ctx: &Context) -> Value;
+    fn convert_to_logical(&self, ctx: &Context) -> Result;
 }
 
-impl ConvertToLogical for Value {
-    fn convert_to_logical(&self, ctx: &Context) -> Value {
+impl ConvertToLogical for Result {
+    fn convert_to_logical(&self, ctx: &Context) -> Result {
         match self {
-            Value::Num(n) => Value::Bool(*n != 0.0),
+            Ok(Value::Num(n)) => Ok(Value::Bool(*n != 0.0)),
             // TODO: it may be possible to parse text to bool
-            Value::String(_) => Value::Bool(false),
-            Value::Bool(_) => self.clone(),
-            Value::Ref(_) => self.convert_to_scalar(ctx).convert_to_logical(ctx),
-            Value::EmptyCell => Value::Bool(false),
-            Value::Err(_) => self.clone(),
+            Ok(Value::String(_)) => Ok(Value::Bool(false)),
+            Ok(Value::Bool(_)) => self.clone(),
+            Ok(Value::Ref(_)) => self.convert_to_scalar(ctx).convert_to_logical(ctx),
+            Ok(Value::EmptyCell) => Ok(Value::Bool(false)),
+            Err(_) => self.clone(),
         }
     }
 }
 
 pub trait ConvertToText {
-    fn convert_to_text(&self, ctx: &Context) -> Value;
+    fn convert_to_text(&self, ctx: &Context) -> Result;
 }
 
-impl ConvertToText for Value {
-    fn convert_to_text(&self, ctx: &Context) -> Value {
+impl ConvertToText for Result {
+    fn convert_to_text(&self, ctx: &Context) -> Result {
         match self {
-            Value::Num(n) => {
+            Ok(Value::Num(n)) => {
                 let mut buffer = ryu::Buffer::new();
                 let fmt = buffer.format(*n);
-                Value::String(fmt.into())
+                Ok(Value::String(fmt.into()))
             }
-            Value::String(_) => self.clone(),
-            Value::Bool(b) => {
+            Ok(Value::String(_)) => self.clone(),
+            Ok(Value::Bool(b)) => {
                 if *b {
-                    Value::String("TRUE".to_string())
+                    Ok(Value::String("TRUE".to_string()))
                 } else {
-                    Value::String("FALSE".to_string())
+                    Ok(Value::String("FALSE".to_string()))
                 }
             }
-            Value::Ref(_) => self.convert_to_scalar(ctx).convert_to_text(ctx),
-            Value::EmptyCell => Value::String("".to_string()),
-            Value::Err(_) => self.clone(),
+            Ok(Value::Ref(_)) => self.convert_to_scalar(ctx).convert_to_text(ctx),
+            Ok(Value::EmptyCell) => Ok(Value::String("".to_string())),
+            Err(_) => self.clone(),
         }
     }
 }
