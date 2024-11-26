@@ -3,7 +3,7 @@ use log::trace;
 
 use crate::{
     conversion::ConvertToNumber,
-    types::{Error, Expr, Ref, Value, Result},
+    types::{Error, Expr, Ref, Result, Value},
 };
 
 #[derive(Debug, Clone)]
@@ -12,7 +12,7 @@ pub struct Cell {
     pub expr: Option<Expr>,
 }
 
-type EvalFn = dyn Fn(&[Expr], &Context) -> Result;
+type EvalFn = dyn Fn(&[Expr], &Context) -> Result<Value>;
 
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
 #[derive(Default)]
@@ -63,34 +63,36 @@ impl Sheet {
     }
 }
 
-fn eval_to_num<F>(ctx: &Context, expr: &Expr, f: F) -> Result
+fn eval_to_num<F>(ctx: &Context, expr: &Expr, f: F) -> Result<Value>
 where
-    F: Fn(f64) -> std::result::Result<f64, Error>
+    F: Fn(f64) -> Result<f64>,
 {
     let v = eval(ctx, expr).convert_to_number(ctx)?;
     match v {
-        Value::Num(n) => f(n).map(|x| Value::Num(x)),
-        _ => Err(Error::Value),
+        Value::Num(n) => f(n).map(Value::Num),
+        // converet_to_number always returns Value::Num
+        _ => unreachable!(),
     }
 }
 
-fn eval_to_num_2<F>(ctx: &Context, lhs: &Expr, rhs: &Expr, f: F) -> Result
+fn eval_to_num_2<F>(ctx: &Context, lhs: &Expr, rhs: &Expr, f: F) -> Result<Value>
 where
-    F: Fn(f64, f64) -> std::result::Result<f64, Error>,
+    F: Fn(f64, f64) -> Result<f64>,
 {
     let vl = eval(ctx, lhs).convert_to_number(ctx)?;
     let vr = eval(ctx, rhs).convert_to_number(ctx)?;
     if let (Value::Num(vl), Value::Num(vr)) = (vl, vr) {
-        f(vl, vr).map(|x| Value::Num(x))
+        f(vl, vr).map(Value::Num)
     } else {
-        Err(Error::Value)
+        // converet_to_number always returns Value::Num
+        unreachable!()
     }
 }
 
 /// Evaluate a reference to a single cell value.
 ///
 /// Apply implied intersection if multiple cells are referenced.
-pub fn eval_ref(ctx: &Context, r: &Ref) -> Result {
+pub fn eval_ref(ctx: &Context, r: &Ref) -> Result<Value> {
     match r {
         // evaluate single cell reference
         Ref::CellRef(x, y) => {
@@ -161,7 +163,7 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Result {
     }
 }
 
-pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Result {
+pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Result<Value> {
     use crate::functions::*;
     match fname {
         // first check for functions defined at compile time
@@ -179,17 +181,15 @@ pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Result {
         "SQRT" => sqrt(args, ctx),
         "TAN" => tan(args, ctx),
         // check for functions defined at runtime
-        _ => {
-            if let Some(f) = ctx.functions.get(fname) {
-                f(args, ctx)
-            } else {
-                Err(Error::Name)
-            }
-        }
+        _ => ctx
+            .functions
+            .get(fname)
+            .ok_or(Error::Name)
+            .and_then(|f| f(args, ctx)),
     }
 }
 
-pub fn eval(ctx: &Context, expr: &Expr) -> Result {
+pub fn eval(ctx: &Context, expr: &Expr) -> Result<Value> {
     trace!("{:?}", expr);
     let v = match expr {
         Expr::Num(n) => Ok(Value::Num(*n)),

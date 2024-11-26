@@ -42,7 +42,7 @@ pub fn setup_context(current: &str, expr: &str) -> (Context, Expr) {
 #[library_benchmark(setup = setup_context)]
 #[bench::simple_ref(args = ("B1", "A1"))]
 #[bench::simple_trig(args = ("B1", "SIN(ABS(A1))"))]
-fn bench_eval(args: (Context, Expr)) -> Result {
+fn bench_eval(args: (Context, Expr)) -> Result<Value> {
     let (ctx, expr) = args;
     black_box(eval(&ctx, &expr))
 }

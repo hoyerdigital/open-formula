@@ -19,6 +19,8 @@ pub enum Error {
     Args = 10,
 }
 
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Num(f64),
@@ -27,8 +29,6 @@ pub enum Value {
     EmptyCell,
     Ref(Ref),
 }
-
-pub type Result = std::result::Result<Value, Error>;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Comp {

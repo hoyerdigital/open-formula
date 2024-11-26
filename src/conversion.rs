@@ -5,11 +5,11 @@ use crate::{
 use std::str::FromStr;
 
 pub trait ConvertToScalar {
-    fn convert_to_scalar(&self, ctx: &Context) -> Result;
+    fn convert_to_scalar(&self, ctx: &Context) -> Result<Value>;
 }
 
-impl ConvertToScalar for Result {
-    fn convert_to_scalar(&self, ctx: &Context) -> Result {
+impl ConvertToScalar for Result<Value> {
+    fn convert_to_scalar(&self, ctx: &Context) -> Result<Value> {
         match self {
             Ok(Value::Num(_)) | Ok(Value::Bool(_)) | Ok(Value::String(_)) => self.clone(),
             Ok(Value::Ref(r)) => eval_ref(ctx, r),
@@ -20,11 +20,11 @@ impl ConvertToScalar for Result {
 }
 
 pub trait ConvertToNumber {
-    fn convert_to_number(&self, ctx: &Context) -> Result;
+    fn convert_to_number(&self, ctx: &Context) -> Result<Value>;
 }
 
-impl ConvertToNumber for Result {
-    fn convert_to_number(&self, ctx: &Context) -> Result {
+impl ConvertToNumber for Result<Value> {
+    fn convert_to_number(&self, ctx: &Context) -> Result<Value> {
         match self {
             Ok(Value::Num(_)) => self.clone(),
             Ok(Value::Bool(b)) => {
@@ -43,11 +43,11 @@ impl ConvertToNumber for Result {
 }
 
 pub trait ConvertToLogical {
-    fn convert_to_logical(&self, ctx: &Context) -> Result;
+    fn convert_to_logical(&self, ctx: &Context) -> Result<Value>;
 }
 
-impl ConvertToLogical for Result {
-    fn convert_to_logical(&self, ctx: &Context) -> Result {
+impl ConvertToLogical for Result<Value> {
+    fn convert_to_logical(&self, ctx: &Context) -> Result<Value> {
         match self {
             Ok(Value::Num(n)) => Ok(Value::Bool(*n != 0.0)),
             // TODO: it may be possible to parse text to bool
@@ -61,11 +61,11 @@ impl ConvertToLogical for Result {
 }
 
 pub trait ConvertToText {
-    fn convert_to_text(&self, ctx: &Context) -> Result;
+    fn convert_to_text(&self, ctx: &Context) -> Result<Value>;
 }
 
-impl ConvertToText for Result {
-    fn convert_to_text(&self, ctx: &Context) -> Result {
+impl ConvertToText for Result<Value> {
+    fn convert_to_text(&self, ctx: &Context) -> Result<Value> {
         match self {
             Ok(Value::Num(n)) => {
                 let mut buffer = ryu::Buffer::new();
