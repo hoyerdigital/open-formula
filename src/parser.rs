@@ -1,6 +1,5 @@
 use chumsky::prelude::*;
 pub use chumsky::Parser;
-use std::ops::Range;
 
 use crate::{
     helpers::column_to_id,
@@ -8,58 +7,55 @@ use crate::{
     xmlchar::XmlChar,
 };
 
-type Span = Range<usize>;
-
-pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
+pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> {
     let expr = recursive(|expr| {
-        let uppercase = filter::<_, _, Simple<char>>(char::is_ascii_uppercase)
+        let uppercase = any()
+            .filter(char::is_ascii_uppercase)
             .repeated()
             .at_least(1)
-            .collect::<String>();
-        let cellref = uppercase
-            .then(text::digits(10))
-            .try_map(|(col_chars, row_num), span| {
+            .to_slice();
+        let cellref = uppercase.then(text::digits(10).to_slice()).try_map(
+            |(col_chars, row_num): (&str, &str), span: SimpleSpan| {
                 let row = row_num
                     .parse::<usize>()
-                    .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?
                     .checked_sub(1)
-                    .ok_or(Simple::custom(
+                    .ok_or(Rich::custom(
                         span.clone(),
                         "row reference must be greater than zero",
                     ))?;
                 let col =
-                    column_to_id(col_chars).map_err(|e| Simple::custom(span, format!("{}", e)))?;
+                    column_to_id(col_chars).map_err(|e| Rich::custom(span, format!("{}", e)))?;
                 Ok(Expr::Ref(Ref::CellRef(col, row)))
-            });
-        let columnrange =
-            uppercase
-                .then_ignore(just(":"))
-                .then(uppercase)
-                .try_map(|(a_chars, b_chars), span| {
-                    let a = column_to_id(a_chars)
-                        .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?;
-                    let b = column_to_id(b_chars)
-                        .map_err(|e| Simple::custom(span, format!("{}", e)))?;
-                    Ok(Expr::Ref(Ref::ColumnRange(a, b)))
-                });
+            },
+        );
+        let columnrange = uppercase.then_ignore(just(":")).then(uppercase).try_map(
+            |(a_chars, b_chars), span: SimpleSpan<usize>| {
+                let a = column_to_id(a_chars)
+                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?;
+                let b = column_to_id(b_chars).map_err(|e| Rich::custom(span, format!("{}", e)))?;
+                Ok(Expr::Ref(Ref::ColumnRange(a, b)))
+            },
+        );
         let rowrange = text::digits(10)
+            .to_slice()
             .then_ignore(just(":"))
-            .then(text::digits(10))
-            .try_map(|(a, b): (String, String), span: Span| {
+            .then(text::digits(10).to_slice())
+            .try_map(|(a, b): (&str, &str), span: SimpleSpan<usize>| {
                 // TODO: refactor integer parsing into a function (DRY)
                 let int_a = a
                     .parse::<usize>()
-                    .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?
                     .checked_sub(1)
-                    .ok_or(Simple::custom(
+                    .ok_or(Rich::custom(
                         span.clone(),
                         "row reference must be greater than zero",
                     ))?;
                 let int_b = b
                     .parse::<usize>()
-                    .map_err(|e| Simple::custom(span.clone(), format!("{}", e)))?
+                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?
                     .checked_sub(1)
-                    .ok_or(Simple::custom(
+                    .ok_or(Rich::custom(
                         span.clone(),
                         "row reference must be greater than zero",
                     ))?;
@@ -73,32 +69,33 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
         });
         // custom ident that differs from chumsky::text::ident, because a lot more
         // characters are allowed
-        let ident = filter::<_, _, Simple<char>>(|c: &char| c.is_xml_letter())
-            .map(Some)
-            .chain::<char, Vec<char>, _>(
-                filter::<_, _, Simple<char>>(|c: &char| {
-                    c.is_xml_letter()
-                        || c.is_xml_digit()
-                        || *c == '_'
-                        || *c == '.'
-                        || c.is_xml_combining_char()
-                })
-                .repeated(),
+        let ident = any()
+            .filter(|c: &char| c.is_xml_letter())
+            .then(
+                any()
+                    .filter(|c: &char| {
+                        c.is_xml_letter()
+                            || c.is_xml_digit()
+                            || *c == '_'
+                            || *c == '.'
+                            || c.is_xml_combining_char()
+                    })
+                    .repeated(),
             )
-            .collect()
-            .padded();
+            .padded()
+            .to_slice();
         let num = text::int(10)
             // TODO: make decimal point character configurable
-            .then(just('.').ignore_then(text::digits(10)).or_not())
-            .map(|(a, o)| if let Some(b) = o { a + "." + &b } else { a })
+            .then(just('.').then(text::digits(10)).or_not())
+            .to_slice()
             .from_str()
             .unwrapped()
             .map(Expr::Num);
-        let str_ = just('"')
-            .ignore_then(none_of('"').repeated())
-            .then_ignore(just('"'))
-            .collect::<String>()
-            .map(Expr::String);
+        let str_ = none_of('"')
+            .repeated()
+            .to_slice()
+            .map(|s: &str| Expr::String(s.to_string()))
+            .delimited_by(just('"'), just('"'));
         let call = ident
             .then(
                 expr.clone()
@@ -107,15 +104,15 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
                     .collect::<Vec<_>>()
                     .delimited_by(just('('), just(')')),
             )
-            .map(|(f, args)| Expr::Func(f, args));
-        let bool = choice::<_, Simple<char>>((
+            .map(|(f, args): (&str, _)| Expr::Func(f.to_string(), args));
+        let bool = choice((
             text::keyword("TRUE").to(Expr::Bool(true)),
             text::keyword("FALSE").to(Expr::Bool(false)),
         ))
         .padded();
 
         // FIXME: check for proper order of choices
-        let atom = choice::<_, Simple<char>>((
+        let atom = choice((
             rowrange,
             expr.delimited_by(just('('), just(')')),
             num,
@@ -131,35 +128,29 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
         let op = |c| just(c).padded();
 
         // all pieces are defined, the root of the parser starts here 🐉
-        let range = atom
-            .clone()
-            .then(
-                op(':')
-                    .to(Expr::Range as fn(_, _) -> _)
-                    .then(atom)
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let range = atom.clone().foldl(
+            op(':')
+                .to(Expr::Range as fn(_, _) -> _)
+                .then(atom)
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
 
-        let ref_intersection = range
-            .clone()
-            .then(
-                op('!')
-                    .to(Expr::RefIntersection as fn(_, _) -> _)
-                    .then(range.clone())
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let ref_intersection = range.clone().foldl(
+            op('!')
+                .to(Expr::RefIntersection as fn(_, _) -> _)
+                .then(range.clone())
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
 
-        let ref_union = ref_intersection
-            .clone()
-            .then(
-                op('~')
-                    .to(Expr::RefUnion as fn(_, _) -> _)
-                    .then(ref_intersection.clone())
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let ref_union = ref_intersection.clone().foldl(
+            op('~')
+                .to(Expr::RefUnion as fn(_, _) -> _)
+                .then(ref_intersection.clone())
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
 
         // reference unions are just needed for medium (or large) evaluators
         // boxed is needed here to reduce compile times
@@ -174,8 +165,7 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
         let unary = op('-')
             .or(op('+'))
             .repeated()
-            .then(next.clone())
-            .foldr(|op, rhs| match op {
+            .foldr(next.clone(), |op, rhs| match op {
                 '-' => Expr::Neg(Box::new(rhs)),
                 // per definition the prefix operator "does nothing",
                 // especially it does not convert to number, so we
@@ -186,52 +176,43 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
 
         let unary_suffix = unary
             .clone()
-            .then(op('%').repeated())
-            .foldl(|lhs, _op| Expr::Perc(Box::new(lhs)));
+            .foldl(op('%').repeated(), |lhs, _op| Expr::Perc(Box::new(lhs)));
 
-        let pow = unary_suffix
-            .clone()
-            .then(
-                op('^')
-                    .to(Expr::Pow as fn(_, _) -> _)
-                    .then(unary)
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let pow = unary_suffix.clone().foldl(
+            op('^')
+                .to(Expr::Pow as fn(_, _) -> _)
+                .then(unary)
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
 
-        let product = pow
-            .clone()
-            .then(
-                op('*')
-                    .to(Expr::Mul as fn(_, _) -> _)
-                    .or(op('/').to(Expr::Div as fn(_, _) -> _))
-                    .then(pow)
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let product = pow.clone().foldl(
+            op('*')
+                .to(Expr::Mul as fn(_, _) -> _)
+                .or(op('/').to(Expr::Div as fn(_, _) -> _))
+                .then(pow)
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
 
-        let sum = product
-            .clone()
-            .then(
-                op('+')
-                    .to(Expr::Add as fn(_, _) -> _)
-                    .or(op('-').to(Expr::Sub as fn(_, _) -> _))
-                    .then(product)
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let sum = product.clone().foldl(
+            op('+')
+                .to(Expr::Add as fn(_, _) -> _)
+                .or(op('-').to(Expr::Sub as fn(_, _) -> _))
+                .then(product)
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
 
-        let conc = sum
-            .clone()
-            .then(
-                op('&')
-                    .to(Expr::Concat as fn(_, _) -> _)
-                    .then(sum)
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)));
+        let conc = sum.clone().foldl(
+            op('&')
+                .to(Expr::Concat as fn(_, _) -> _)
+                .then(sum)
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        );
 
-        let comp = choice::<_, Simple<char>>((
+        let comp = choice((
             just("<>").to(Comp::NotEqual),
             just(">=").to(Comp::GreaterEqual),
             just("<=").to(Comp::LowerEqual),
@@ -240,13 +221,12 @@ pub fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
             just("<").to(Comp::Lower),
         ));
 
-        conc.clone()
-            .then(
-                comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
-                    .then(conc)
-                    .repeated(),
-            )
-            .foldl(|lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)))
+        conc.clone().foldl(
+            comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
+                .then(conc)
+                .repeated(),
+            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
+        )
     });
 
     expr.then_ignore(end())
@@ -259,9 +239,9 @@ mod tests {
     use test_log::test;
 
     fn parse(input: &str) -> Expr {
-        let (res, errs) = parser().parse_recovery_verbose(input);
-        if !errs.is_empty() {
-            error!("{:?}", errs);
+        let res = parser().parse(input);
+        if res.has_errors() {
+            error!("{:?}", res.clone().into_errors());
         }
         res.unwrap()
     }

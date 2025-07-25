@@ -52,7 +52,7 @@ impl Sheet {
         self.map.get_mut(&(x, y))
     }
 
-    pub fn iter(&self) -> SheetCellsIter {
+    pub fn iter(&self) -> SheetCellsIter<'_> {
         SheetCellsIter {
             iter: self.map.iter(),
         }
@@ -248,8 +248,8 @@ mod tests {
         let formula = re.replace_all(formula, "$1$3$4").into_owned();
 
         // FIXME: proper checking/parsing (remove unwraps)
-        let (res, errs) = parser().parse_recovery_verbose(formula);
-        trace!("{:?}", errs);
+        let res = parser().parse(&formula);
+        trace!("{:?}", res);
         res.unwrap()
     }
 

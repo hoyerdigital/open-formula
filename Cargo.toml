@@ -12,7 +12,7 @@ sql = ["small"]
 
 [dependencies]
 ahash = "0.8.11"
-chumsky = "0.9.3"
+chumsky = "0.11.1"
 enum-as-inner = "0.6.0"
 log = "0.4.22"
 num_enum = "0.7.3"
@@ -20,13 +20,13 @@ ryu = "1.0.18"
 
 [dev-dependencies]
 regex = "1.11.0"
-ariadne = "0.4.1"
-dir-test = "0.3.0"
+ariadne = "0.5.1"
+dir-test = "0.4.1"
 env_logger = "0.11.5"
-inquire = "0.7.5"
-spreadsheet-ods = "0.22.5"
+inquire = "0.9.1"
+spreadsheet-ods = "0.25.0"
 test-log = "0.2.16"
-iai-callgrind = "0.14.0"
+iai-callgrind = "0.16.0"
 
 [profile.bench]
 debug = true
