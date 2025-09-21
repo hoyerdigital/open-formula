@@ -1,3 +1,4 @@
+use chumsky::pratt::*;
 use chumsky::prelude::*;
 pub use chumsky::Parser;
 
@@ -8,7 +9,7 @@ use crate::{
 };
 
 pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> {
-    let expr = recursive(|expr| {
+    recursive(|expr| {
         let uppercase = any()
             .filter(char::is_ascii_uppercase)
             .repeated()
@@ -18,10 +19,10 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>
             |(col_chars, row_num): (&str, &str), span: SimpleSpan| {
                 let row = row_num
                     .parse::<usize>()
-                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?
+                    .map_err(|e| Rich::custom(span, format!("{}", e)))?
                     .checked_sub(1)
                     .ok_or(Rich::custom(
-                        span.clone(),
+                        span,
                         "row reference must be greater than zero",
                     ))?;
                 let col =
@@ -31,8 +32,7 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>
         );
         let columnrange = uppercase.then_ignore(just(":")).then(uppercase).try_map(
             |(a_chars, b_chars), span: SimpleSpan<usize>| {
-                let a = column_to_id(a_chars)
-                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?;
+                let a = column_to_id(a_chars).map_err(|e| Rich::custom(span, format!("{}", e)))?;
                 let b = column_to_id(b_chars).map_err(|e| Rich::custom(span, format!("{}", e)))?;
                 Ok(Expr::Ref(Ref::ColumnRange(a, b)))
             },
@@ -45,18 +45,18 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>
                 // TODO: refactor integer parsing into a function (DRY)
                 let int_a = a
                     .parse::<usize>()
-                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?
+                    .map_err(|e| Rich::custom(span, format!("{}", e)))?
                     .checked_sub(1)
                     .ok_or(Rich::custom(
-                        span.clone(),
+                        span,
                         "row reference must be greater than zero",
                     ))?;
                 let int_b = b
                     .parse::<usize>()
-                    .map_err(|e| Rich::custom(span.clone(), format!("{}", e)))?
+                    .map_err(|e| Rich::custom(span, format!("{}", e)))?
                     .checked_sub(1)
                     .ok_or(Rich::custom(
-                        span.clone(),
+                        span,
                         "row reference must be greater than zero",
                     ))?;
                 Ok(Expr::Ref(Ref::RowRange(int_a, int_b)))
@@ -128,90 +128,6 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>
         let op = |c| just(c).padded();
 
         // all pieces are defined, the root of the parser starts here 🐉
-        let range = atom.clone().foldl(
-            op(':')
-                .to(Expr::Range as fn(_, _) -> _)
-                .then(atom)
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        );
-
-        let ref_intersection = range.clone().foldl(
-            op('!')
-                .to(Expr::RefIntersection as fn(_, _) -> _)
-                .then(range.clone())
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        );
-
-        let ref_union = ref_intersection.clone().foldl(
-            op('~')
-                .to(Expr::RefUnion as fn(_, _) -> _)
-                .then(ref_intersection.clone())
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        );
-
-        // reference unions are just needed for medium (or large) evaluators
-        // boxed is needed here to reduce compile times
-        // see https://github.com/zesterer/chumsky/issues/13#issuecomment-1694521871
-        // and https://docs.rs/chumsky/latest/chumsky/trait.Parser.html#method.boxed
-        let next = if cfg!(feature = "medium") {
-            ref_union.boxed()
-        } else {
-            ref_intersection.boxed()
-        };
-
-        let unary = op('-')
-            .or(op('+'))
-            .repeated()
-            .foldr(next.clone(), |op, rhs| match op {
-                '-' => Expr::Neg(Box::new(rhs)),
-                // per definition the prefix operator "does nothing",
-                // especially it does not convert to number, so we
-                // are just ignoring it for now
-                '+' => rhs,
-                _ => unreachable!(),
-            });
-
-        let unary_suffix = unary
-            .clone()
-            .foldl(op('%').repeated(), |lhs, _op| Expr::Perc(Box::new(lhs)));
-
-        let pow = unary_suffix.clone().foldl(
-            op('^')
-                .to(Expr::Pow as fn(_, _) -> _)
-                .then(unary)
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        );
-
-        let product = pow.clone().foldl(
-            op('*')
-                .to(Expr::Mul as fn(_, _) -> _)
-                .or(op('/').to(Expr::Div as fn(_, _) -> _))
-                .then(pow)
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        );
-
-        let sum = product.clone().foldl(
-            op('+')
-                .to(Expr::Add as fn(_, _) -> _)
-                .or(op('-').to(Expr::Sub as fn(_, _) -> _))
-                .then(product)
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        );
-
-        let conc = sum.clone().foldl(
-            op('&')
-                .to(Expr::Concat as fn(_, _) -> _)
-                .then(sum)
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        );
-
         let comp = choice((
             just("<>").to(Comp::NotEqual),
             just(">=").to(Comp::GreaterEqual),
@@ -221,15 +137,26 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>
             just("<").to(Comp::Lower),
         ));
 
-        conc.clone().foldl(
-            comp.map(|c| move |lhs, rhs| Expr::Cond(c, lhs, rhs))
-                .then(conc)
-                .repeated(),
-            |lhs, (op, rhs)| op(Box::new(lhs), Box::new(rhs)),
-        )
-    });
+        #[rustfmt::skip]
+        let expr = atom.pratt((
+            prefix(7, op('-'), |_, rhs, _| Expr::Neg(Box::new(rhs))),
+            prefix(7, op('+'), |_, rhs, _| rhs),
+            postfix(6, op('%'), |lhs, _, _| Expr::Perc(Box::new(lhs))),
+            infix(left(10), op(':'), |l, _, r, _| Expr::Range(Box::new(l), Box::new(r))),
+            infix(left(9), op('!'), |l, _, r, _| Expr::RefIntersection(Box::new(l), Box::new(r))),
+            #[cfg(feature = "medium")]
+            infix(left(8), op('~'), |l, _, r, _| Expr::RefUnion(Box::new(l), Box::new(r))),
+            infix(left(5), op('^'), |l, _, r, _| Expr::Pow(Box::new(l), Box::new(r))),
+            infix(left(4), op('*'), |l, _, r, _| Expr::Mul(Box::new(l), Box::new(r))),
+            infix(left(4), op('/'), |l, _, r, _| Expr::Div(Box::new(l), Box::new(r))),
+            infix(left(3), op('+'), |l, _, r, _| Expr::Add(Box::new(l), Box::new(r))),
+            infix(left(3), op('-'), |l, _, r, _| Expr::Sub(Box::new(l), Box::new(r))),
+            infix(left(2), op('&'), |l, _, r, _| Expr::Concat(Box::new(l), Box::new(r))),
+            infix(left(1), comp, |l, c, r, _| Expr::Cond(c, Box::new(l), Box::new(r)))
+        ));
 
-    expr.then_ignore(end())
+        expr
+    })
 }
 
 #[cfg(test)]
