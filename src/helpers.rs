@@ -1,19 +1,30 @@
-#[derive(Debug, PartialEq, derive_more::Display, derive_more::Error)]
-pub enum Error {
+use std::fmt::Display;
+
+#[derive(Debug, PartialEq)]
+pub enum RefError {
     EmptyReference,
     MalformedReference,
 }
 
-pub fn column_to_id<S: AsRef<str>>(col: S) -> Result<usize, Error> {
+impl Display for RefError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyReference => write!(f, "empty reference"),
+            Self::MalformedReference => write!(f, "malformed reference"),
+        }
+    }
+}
+
+pub fn column_to_id<S: AsRef<str>>(col: S) -> Result<usize, RefError> {
     let col = col.as_ref();
     let len = col.len();
     if len == 0 {
-        return Err(Error::EmptyReference);
+        return Err(RefError::EmptyReference);
     }
     let mut sum = 0;
     for c in col.chars() {
         if !c.is_ascii_uppercase() {
-            return Err(Error::MalformedReference);
+            return Err(RefError::MalformedReference);
         }
         sum *= 26;
         sum += (c as u8) as usize - 65 + 1;
@@ -34,11 +45,11 @@ mod tests {
         assert_eq!(column_to_id("AB"), Ok(27));
         assert_eq!(column_to_id("XFD"), Ok(16383));
 
-        assert_eq!(column_to_id(""), Err(Error::EmptyReference));
-        assert_eq!(column_to_id("%"), Err(Error::MalformedReference));
-        assert_eq!(column_to_id("A0F"), Err(Error::MalformedReference));
-        assert_eq!(column_to_id("Aa"), Err(Error::MalformedReference));
-        assert_eq!(column_to_id("aA"), Err(Error::MalformedReference));
-        assert_eq!(column_to_id("ab"), Err(Error::MalformedReference));
+        assert_eq!(column_to_id(""), Err(RefError::EmptyReference));
+        assert_eq!(column_to_id("%"), Err(RefError::MalformedReference));
+        assert_eq!(column_to_id("A0F"), Err(RefError::MalformedReference));
+        assert_eq!(column_to_id("Aa"), Err(RefError::MalformedReference));
+        assert_eq!(column_to_id("aA"), Err(RefError::MalformedReference));
+        assert_eq!(column_to_id("ab"), Err(RefError::MalformedReference));
     }
 }

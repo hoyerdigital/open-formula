@@ -1,7 +1,7 @@
 use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use open_formula::eval::{eval, Cell, Context};
 use open_formula::parser::{parser, Parser};
-use open_formula::types::{Error, Expr, Ref, Value};
+use open_formula::types::{Error, Expr, Ref, Result, Value};
 use std::hint::black_box;
 
 pub fn setup_context(current: &str, expr: &str) -> (Context, Expr) {
@@ -42,7 +42,7 @@ pub fn setup_context(current: &str, expr: &str) -> (Context, Expr) {
 #[library_benchmark(setup = setup_context)]
 #[bench::simple_ref(args = ("B1", "A1"))]
 #[bench::simple_trig(args = ("B1", "SIN(ABS(A1))"))]
-fn bench_eval(args: (Context, Expr)) -> Value {
+fn bench_eval(args: (Context, Expr)) -> Result<Value> {
     let (ctx, expr) = args;
     black_box(eval(&ctx, &expr))
 }
