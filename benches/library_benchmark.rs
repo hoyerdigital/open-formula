@@ -7,9 +7,11 @@ use std::hint::black_box;
 pub fn setup_context(current: &str, expr: &str) -> (Context, Expr) {
     let expr = parser()
         .parse(expr)
+        .into_result()
         .expect("expected valid formula expression");
     let current = parser()
         .parse(current)
+        .into_result()
         .expect("expected single cell position");
     if let Expr::Ref(Ref::CellRef(x, y)) = current {
         let mut ctx = Context {
