@@ -218,6 +218,8 @@ pub fn eval(ctx: &Context, expr: &Expr) -> Result<Value> {
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, path::PathBuf};
+
     use super::*;
     use crate::{
         conversion::ConvertToScalar,
@@ -225,7 +227,78 @@ mod tests {
     };
     use dir_test::{dir_test, Fixture};
     use log::trace;
+    use serde::Deserialize;
     use test_log::test;
+
+    #[derive(Debug, Deserialize)]
+    struct FuncNameRow {
+        function: String,
+        small: bool,
+        medium: bool,
+        large: bool,
+    }
+
+    enum FuncEvalGroup {
+        Small,
+        Medium,
+        Large,
+    }
+
+    fn eval_func_names(group: FuncEvalGroup) -> Vec<String> {
+        let mut file_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        file_path.push("fixtures");
+        file_path.push("function_names.csv");
+        let file = File::open(file_path).unwrap();
+        let mut rdr = csv::Reader::from_reader(file);
+        rdr.deserialize()
+            .filter_map(|row| {
+                let row: FuncNameRow = row.unwrap();
+                use FuncEvalGroup::*;
+                match group {
+                    Small => row.small.then_some(row.function),
+                    Medium => row.medium.then_some(row.function),
+                    Large => row.large.then_some(row.function),
+                }
+            })
+            .collect()
+    }
+
+    fn funcs_evaluator_impl(group: FuncEvalGroup) {
+        let fns = eval_func_names(group);
+        let ctx = Context::default();
+        let mut missing: Vec<String> = vec![];
+        for func in fns {
+            let formula = format!("{func}()");
+            let parser_result = parser().parse(&formula);
+            let expr = parser_result.into_output().unwrap();
+            let eval_result = eval(&ctx, &expr);
+            if let Err(Error::Name) = eval_result {
+                missing.push(func);
+            } else if Err(Error::Args) != eval_result {
+                dbg!(&eval_result);
+                assert!(eval_result.is_ok());
+            }
+        }
+        assert_eq!(Vec::<String>::new(), missing);
+    }
+
+    #[test]
+    #[ignore]
+    fn funcs_small_evaluator_impl() {
+        funcs_evaluator_impl(FuncEvalGroup::Small);
+    }
+
+    #[test]
+    #[ignore]
+    fn funcs_medium_evaluator_impl() {
+        funcs_evaluator_impl(FuncEvalGroup::Medium);
+    }
+
+    #[test]
+    #[ignore]
+    fn funcs_large_evaluator_impl() {
+        funcs_evaluator_impl(FuncEvalGroup::Large);
+    }
 
     fn ods_to_value(value: &spreadsheet_ods::Value) -> Option<Value> {
         use spreadsheet_ods::Value as ods;
