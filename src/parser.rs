@@ -116,12 +116,12 @@ pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>
             rowrange,
             expr.delimited_by(just('('), just(')')),
             num,
-            bool,
             str_,
             columnrange,
             cellrange,
-            cellref,
             call,
+            bool,
+            cellref,
         ))
         .padded();
 
@@ -248,6 +248,10 @@ mod tests {
                 "SUM".into(),
                 vec![Expr::String("3".into()), Expr::String("4".into())]
             )
+        );
+        assert_eq!(
+            parse("ATAN2(1.0)"),
+            Expr::Func("ATAN2".into(), vec![Expr::Num(1.0)])
         );
     }
 
