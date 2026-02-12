@@ -263,7 +263,7 @@ mod tests {
             .collect()
     }
 
-    fn funcs_evaluator_impl(group: FuncEvalGroup) {
+    fn funcs_missing(group: FuncEvalGroup) -> Vec<String> {
         let fns = eval_func_names(group);
         let ctx = Context::default();
         let mut missing: Vec<String> = vec![];
@@ -279,25 +279,25 @@ mod tests {
                 assert!(eval_result.is_ok());
             }
         }
-        assert_eq!(Vec::<String>::new(), missing);
+        missing
     }
 
     #[test]
     #[ignore]
-    fn funcs_small_evaluator_impl() {
-        funcs_evaluator_impl(FuncEvalGroup::Small);
+    fn funcs_missing_small() {
+        assert_eq!(Vec::<String>::new(), funcs_missing(FuncEvalGroup::Small));
     }
 
     #[test]
     #[ignore]
-    fn funcs_medium_evaluator_impl() {
-        funcs_evaluator_impl(FuncEvalGroup::Medium);
+    fn funcs_missing_medium() {
+        assert_eq!(Vec::<String>::new(), funcs_missing(FuncEvalGroup::Medium));
     }
 
     #[test]
     #[ignore]
-    fn funcs_large_evaluator_impl() {
-        funcs_evaluator_impl(FuncEvalGroup::Large);
+    fn funcs_missing_large() {
+        assert_eq!(Vec::<String>::new(), funcs_missing(FuncEvalGroup::Large));
     }
 
     fn ods_to_value(value: &spreadsheet_ods::Value) -> Option<Value> {
