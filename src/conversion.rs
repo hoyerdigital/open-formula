@@ -1,9 +1,16 @@
+//! Traits for conversion of values.
+//!
+//! Values need to be converted between types on function or operator evaluation.
+//! The traits and corresponding implementations in th is module each implement a single
+//! conversion as defined in the [specification](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017978_715980110).
+
 use crate::{
     eval::{eval_ref, Context},
     types::{Error, Result, Value},
 };
 use std::str::FromStr;
 
+/// Conversion to [Scalar](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017982_715980110).
 pub trait ConvertToScalar {
     fn convert_to_scalar(self, ctx: &Context) -> Result<Value>;
 }
@@ -19,6 +26,7 @@ impl ConvertToScalar for Result<Value> {
     }
 }
 
+/// Conversion to [Number](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017988_715980110).
 pub trait ConvertToNumber {
     fn convert_to_number(self, ctx: &Context) -> Result<Value>;
 }
@@ -42,6 +50,7 @@ impl ConvertToNumber for Result<Value> {
     }
 }
 
+/// Conversion to [Logical](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1018002_715980110).
 pub trait ConvertToLogical {
     fn convert_to_logical(self, ctx: &Context) -> Result<Value>;
 }
@@ -60,6 +69,7 @@ impl ConvertToLogical for Result<Value> {
     }
 }
 
+/// Conversion to [Text](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1018004_715980110).
 pub trait ConvertToText {
     fn convert_to_text(self, ctx: &Context) -> Result<Value>;
 }

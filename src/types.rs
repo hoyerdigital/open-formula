@@ -1,6 +1,9 @@
+//! OpenFormula [types](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017876_715980110) mapped to rust enums.
+
 use enum_as_inner::EnumAsInner;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+/// OpenFormula [Error](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017900_715980110) type.
 #[derive(Debug, Clone, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub enum Error {
@@ -19,8 +22,12 @@ pub enum Error {
     Args = 10,
 }
 
+/// A result type that uses an OpenFormula [Error] type.
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// An OpenFormula value.
+///
+/// Any type that is *not* a [pseudo type](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017910_715980110).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Num(f64),
@@ -30,6 +37,9 @@ pub enum Value {
     Ref(Ref),
 }
 
+/// A comparison operator.
+///
+/// Comparion operators used in expressions.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Comp {
     Equal,
@@ -40,6 +50,7 @@ pub enum Comp {
     GreaterEqual,
 }
 
+/// An OpenFomula [expression](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017930_715980110).
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 pub enum Expr {
     Num(f64),
@@ -61,6 +72,7 @@ pub enum Expr {
     Ref(Ref),
 }
 
+/// An OpenFomula [reference](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__74715_1363921367).
 #[derive(Debug, Clone, EnumAsInner, PartialEq)]
 pub enum Ref {
     CellRef(usize, usize),
@@ -70,6 +82,7 @@ pub enum Ref {
 }
 
 impl Expr {
+    /// Returns all references that are used in an expression.
     pub fn refs(&self) -> Box<dyn Iterator<Item = Ref>> {
         match self {
             Expr::Perc(a) | Expr::Neg(a) => a.refs(),

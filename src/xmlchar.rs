@@ -1,4 +1,13 @@
-// character checks based on xml char definiton: https://www.w3.org/TR/xml/#CharClasses
+//! Character checks based on [xml character classes](https://www.w3.org/TR/xml/#CharClasses).
+//!
+//! See [XmlChar] for available methods.
+//!
+//! Example
+//! ```
+//! use open_formula::xmlchar::XmlChar;
+//! assert!('a'.is_xml_letter());
+//! assert!('5'.is_xml_digit());
+//! ```
 
 pub trait XmlChar {
     /// Checks if the value is an XML [Letter](https://www.w3.org/TR/xml/#NT-Letter) character.
@@ -375,5 +384,24 @@ impl XmlChar for char {
             '\u{0309D}'..='\u{0309E}' |
             '\u{030FC}'..='\u{030FE}'
         )
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::XmlChar;
+
+    #[test]
+    fn letter() {
+        assert!('a'.is_xml_letter());
+        assert!(!'#'.is_xml_letter());
+        assert!(!'5'.is_xml_letter());
+    }
+
+    #[test]
+    fn digit() {
+        assert!(!'a'.is_xml_digit());
+        assert!(!'#'.is_xml_digit());
+        assert!('5'.is_xml_digit());
     }
 }

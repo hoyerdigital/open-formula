@@ -1,3 +1,5 @@
+//! Predefined functions that are used by the evaluator.
+
 use crate::conversion::*;
 use crate::eval::{eval, Context};
 use crate::types::{Error, Expr, Result, Value};

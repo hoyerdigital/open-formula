@@ -15,6 +15,18 @@ impl Display for RefError {
     }
 }
 
+/// Convert a column letter reference to the corresponding numeric id.
+///
+/// Columns are referenced by uppercase ASCII letters: A, B, C…
+///
+/// Example
+/// ```rust
+/// use open_formula::helpers::{column_to_id, RefError};
+/// assert_eq!(column_to_id("A"), Ok(0));
+/// assert_eq!(column_to_id("AZ"), Ok(51));
+/// assert_eq!(column_to_id("BB"), Ok(53));
+/// assert_eq!(column_to_id("#"), Err(RefError::MalformedReference));
+/// ```
 pub fn column_to_id<S: AsRef<str>>(col: S) -> Result<usize, RefError> {
     let col = col.as_ref();
     let len = col.len();
