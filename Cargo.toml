@@ -1,7 +1,8 @@
 [package]
 name = "open-formula"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [features]
 default = ["large", "sql"]
@@ -12,8 +13,8 @@ sql = ["small"]
 
 [dependencies]
 ahash = "0.8.11"
-chumsky = { version = "0.11.2", features = ["pratt"] }
-enum-as-inner = "0.6.0"
+chumsky = { version = "0.12.0", features = ["pratt"] }
+enum-as-inner = "0.7.0"
 log = "0.4.22"
 num_enum = "0.7.4"
 ryu = "1.0.18"
@@ -26,7 +27,7 @@ env_logger = "0.11.5"
 inquire = "0.9.1"
 spreadsheet-ods = "1.0"
 test-log = "0.2.16"
-iai-callgrind = "0.16.0"
+gungraun = "0.17.2"
 csv = "1.4.0"
 serde = { version = "1.0.226", features = ["derive"] }
 
