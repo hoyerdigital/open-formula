@@ -1,3 +1,5 @@
+//! An OpenDocument [Formula Evaluator](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__711844_826425813).
+
 use ahash::AHashMap;
 use log::trace;
 
@@ -6,6 +8,10 @@ use crate::{
     types::{Error, Expr, Ref, Result, Value},
 };
 
+/// A single OpenFormula cell.
+///
+/// Each cell has a an optional value and an optional expression.
+/// If it contains neither a value nor an expression it is considered an empty cell.
 #[derive(Debug, Clone)]
 pub struct Cell {
     pub value: Option<Value>,
@@ -14,6 +20,12 @@ pub struct Cell {
 
 type EvalFn = dyn Fn(&[Expr], &Context) -> Result<Value>;
 
+/// A context that is used to evaluate expressions.
+///
+/// Each evaluation is based on a sheet (which contains cells), an optional
+/// current cursor position and a (possibly empty) list of user defined functions.
+///
+/// Currently only single sheet contexts are supported.
 // TODO: this should be expanded into multiple sheets one day (aka Workbook)
 #[derive(Default)]
 pub struct Context {
@@ -22,11 +34,13 @@ pub struct Context {
     pub functions: AHashMap<String, Box<EvalFn>>,
 }
 
+/// An OpenFormula sheet.
 #[derive(Debug, Default, Clone)]
 pub struct Sheet {
     map: AHashMap<(usize, usize), Cell>,
 }
 
+/// An iterator over all cells of a sheet.
 pub struct SheetCellsIter<'a> {
     iter: std::collections::hash_map::Iter<'a, (usize, usize), Cell>,
 }
@@ -40,24 +54,30 @@ impl<'a> Iterator for SheetCellsIter<'a> {
 }
 
 impl Sheet {
+    /// Returns true if the sheet contains a cell at the given position.
     pub fn has_cell(&self, x: usize, y: usize) -> bool {
+        // FIXME: does this correctly check "empty" cells?
         self.map.contains_key(&(x, y))
     }
 
+    /// Returns the cell at the given position.
     pub fn get(&self, x: usize, y: usize) -> Option<&Cell> {
         self.map.get(&(x, y))
     }
 
+    /// Return a mutable reference to the cell at the given position.
     pub fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut Cell> {
         self.map.get_mut(&(x, y))
     }
 
+    /// Returns an iterator over all cells of this sheet.
     pub fn iter(&self) -> SheetCellsIter<'_> {
         SheetCellsIter {
             iter: self.map.iter(),
         }
     }
 
+    /// Replaces the cell at the given position.
     pub fn set(&mut self, x: usize, y: usize, cell: Cell) -> Option<Cell> {
         self.map.insert((x, y), cell)
     }
@@ -163,6 +183,10 @@ pub fn eval_ref(ctx: &Context, r: &Ref) -> Result<Value> {
     }
 }
 
+/// Evaluates an OpenFormula function with the given name and args.
+///
+/// This will return the evaluated value, or an error if the function does
+/// not exist.
 pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Result<Value> {
     use crate::functions::*;
     match fname {
@@ -189,6 +213,7 @@ pub fn eval_fn(ctx: &Context, fname: &str, args: &[Expr]) -> Result<Value> {
     }
 }
 
+/// Evaluates an OpenFormula expression.
 pub fn eval(ctx: &Context, expr: &Expr) -> Result<Value> {
     trace!("{:?}", expr);
     let v = match expr {

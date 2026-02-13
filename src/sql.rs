@@ -1,3 +1,5 @@
+//! Experimental conversion from OpenFormula expressions to SQL.
+
 use crate::types::{Comp, Expr, Ref};
 
 #[derive(Debug, PartialEq)]
@@ -23,10 +25,31 @@ fn comp_sql(c: &Comp) -> &'static str {
     }
 }
 
+/// Transform a OpenFormula expression into an SQL expression string.
+///
+/// Example
+/// ```rust
+/// use open_formula::{sql::transform, types::Expr};
+/// assert_eq!(transform(&Expr::Bool(false)).unwrap(), "0");
+/// assert_eq!(transform(&Expr::Bool(true)).unwrap(), "1");
+/// assert_eq!(transform(&Expr::Add(Box::new(Expr::Num(3.0)), Box::new(Expr::Num(2.5)))).unwrap(), "3 + 2.5");
+/// ```
 pub fn transform(expr: &Expr) -> Result<String, Error> {
     transform_with_columns(expr, &vec![])
 }
 
+/// Transform a OpenFormula expression into an SQL query expression using predefined column names.
+///
+/// Example
+/// ```rust
+/// use open_formula::{sql::transform_with_columns, types::{Expr, Ref}};
+/// let cols = ["foo", "bar", "baz"].map(String::from).to_vec();
+/// assert_eq!(transform_with_columns(&Expr::Ref(Ref::CellRef(1, 0)), &cols).unwrap(), "bar");
+/// assert_eq!(transform_with_columns(&Expr::Add(
+///     Box::new(Expr::Ref(Ref::CellRef(0, 0))),
+///     Box::new(Expr::Ref(Ref::CellRef(2, 0)))
+/// ), &cols).unwrap(), "foo + baz");
+/// ```
 pub fn transform_with_columns(expr: &Expr, columns: &Vec<String>) -> Result<String, Error> {
     let mut ctx = Context { columns, row: None };
     transform_(expr, &mut ctx)

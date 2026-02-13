@@ -1,3 +1,5 @@
+//! A parser for OpenFormula [formula strings](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1017930_715980110).
+
 use chumsky::pratt::*;
 use chumsky::prelude::*;
 pub use chumsky::Parser;
@@ -8,6 +10,21 @@ use crate::{
     xmlchar::XmlChar,
 };
 
+/// Returns a new OpenFormula parser.
+///
+/// Example
+/// ```rust
+/// use open_formula::{parser::{Parser, parser}, types::*};
+/// let input = "A1 + B1 - 5.0";
+/// let res = parser().parse(input);
+/// assert_eq!(res.unwrap(), Expr::Sub(
+///     Box::new(Expr::Add(
+///         Box::new(Expr::Ref(Ref::CellRef(0, 0))),
+///         Box::new(Expr::Ref(Ref::CellRef(1, 0)))
+///     )),
+///     Box::new(Expr::Num(5.0))
+/// ));
+/// ```
 pub fn parser<'a>() -> impl Parser<'a, &'a str, Expr, extra::Err<Rich<'a, char>>> {
     recursive(|expr| {
         let uppercase = any()
