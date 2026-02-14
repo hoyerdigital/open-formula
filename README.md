@@ -62,15 +62,15 @@ Currently parsing is mostly complete and main focus is to get a proper [OpenDocu
 | [Number](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Conversion_to_Number) | 🟢 |
 | [Logical](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Conversion_to_Logical) | 🟢 |
 | **Operators**    |                |
-| [Infix Operator Ordered Comparison](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1018028_715980110) | 🟢 |
-| [Infix Operator "&"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#a_6_4_10_Infix_Operator_)| 🟢 |
+| [Infix Operator Ordered Comparison](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#__RefHeading__1018028_715980110) | 🟡 |
+| [Infix Operator "&"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#a_6_4_10_Infix_Operator_)| 🟡 |
 | [Infix Operator "+"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_PLUS) | 🟢  |
 | [Infix Operator "-"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_MINUS) | 🟢 |
 | [Infix Operator "*"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_MUL) | 🟢 |
 | [Infix Operator "/"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_DIV) | 🟢 |
 | [Infix Operator "^"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_POW) | 🟢 |
-| [Infix Operator "="](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_EQ) | 🟢 |
-| [Infix Operator "<>"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_NE) | 🟢 |
+| [Infix Operator "="](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_EQ) | 🟡 |
+| [Infix Operator "<>"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Infix_Operator_NE) | 🟡 |
 | [Postfix Operator "%"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Postfix_Operator_PERCENT) | 🟢 |
 | [Prefix Operator "+"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Prefix_Operator_PLUS) | 🟢 |
 | [Prefix Operator "-"](https://docs.oasis-open.org/office/OpenDocument/v1.4/csd01/part4-formula/OpenDocument-v1.4-csd01-part4-formula.html#Prefix_Operator_MINUS) | 🟢 |
