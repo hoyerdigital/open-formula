@@ -3,6 +3,8 @@ name = "open-formula"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
+description = "A spreadsheet formula parser and evaluator that conforms to the Open Document Format for Office Applications Version 1.4 Format."
+repository = "https://codeberg.org/hoyerdigital/open-formula"
 
 [features]
 default = ["large", "sql"]

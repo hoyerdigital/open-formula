@@ -1,0 +1,44 @@
+---
+# Configuration for Repo Lockdown - https://github.com/dessant/repo-lockdown
+
+name: 'Repo Lockdown'
+
+on:
+  issues:
+    types: opened
+  pull_request_target:
+    types: opened
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: dessant/repo-lockdown@v2
+        with:
+          issue-comment: |
+            Thank you for your interest in the open-formula project.
+
+            Since this repository is a read-only mirror of the project's main
+            repository hosted on Codeberg, issues opened here are not processed.
+
+            Please open new issues at [the main repository](https://codeberg.org/hoyerdigital/open-formula/issues/new).
+
+            Thank you for your time and understanding.
+          lock-issue: true
+          close-issue: true
+          pr-comment: |
+            Thank you for your interest in the open-formula project.
+
+            Since this repository is a read-only mirror of the project's main
+            repository hosted on Codeberg, merge requests opened here are not
+            processed.
+
+            Please open new merge requests at [the main repository](https://codeberg.org/hoyerdigital/open-formula/pulls).
+
+            Thank you for your time and understanding.
+          lock-pr: true
+          close-pr: true

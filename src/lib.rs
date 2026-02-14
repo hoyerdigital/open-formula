@@ -11,3 +11,9 @@ pub mod parser;
 pub mod sql;
 pub mod types;
 pub mod xmlchar;
+
+pub mod prelude {
+    pub use super::eval::{Cell, Context, Sheet, eval};
+    pub use super::parser::{Parser, parser};
+    pub use super::types::{Expr, Value};
+}
